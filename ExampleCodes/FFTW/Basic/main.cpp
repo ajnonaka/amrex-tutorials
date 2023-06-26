@@ -108,6 +108,11 @@ int main (int argc, char* argv[])
     MultiFab phi_dft_real(ba, dm, 1, 0);
     MultiFab phi_dft_imag(ba, dm, 1, 0);
 
+    // we are going to put the inverse of the FFT here
+    MultiFab phi_2       (ba, dm, 1, 0);
+
+    phi_2.setVal(0.); // delete this line later once inverse fft is working
+    
     // **********************************
     // INITIALIZE DATA
     // **********************************
@@ -150,6 +155,9 @@ int main (int argc, char* argv[])
     MultiFab phi_onegrid         (ba_onegrid, dm_onegrid, 1, 0);
     MultiFab phi_dft_real_onegrid(ba_onegrid, dm_onegrid, 1, 0);
     MultiFab phi_dft_imag_onegrid(ba_onegrid, dm_onegrid, 1, 0);
+
+    // we are going to put the inverse fft here
+    MultiFab phi_onegrid_2       (ba_onegrid, dm_onegrid, 1, 0);
 
     // copy phi into phi_onegrid
     phi_onegrid.ParallelCopy(phi, 0, 0, 1);
@@ -252,6 +260,29 @@ int main (int argc, char* argv[])
       fftw_execute(forward_plan[i]);
 #endif
     }
+
+    // now we have completed the fft and the fft is inside spectral_field
+    // take inverse fft of spectral_field and put it in phi_onegrid_2
+    //
+    //
+
+
+#if (AMREX_SPACEDIM == 2)
+      fplan = fftw_plan_dft_r2c_2d(fft_size[1], fft_size[0],
+                   phi_onegrid[mfi].dataPtr(),
+                   reinterpret_cast<FFTcomplex*>
+                   (spectral_field.back()->dataPtr()),
+                   FFTW_ESTIMATE);
+#elif (AMREX_SPACEDIM == 3)
+      fplan = fftw_plan_dft_r2c_3d(fft_size[2], fft_size[1], fft_size[0],
+                   phi_onegrid[mfi].dataPtr(),
+                   reinterpret_cast<FFTcomplex*>
+                   (spectral_field.back()->dataPtr()),
+                   FFTW_ESTIMATE);
+#endif
+
+    // copy contents of phi_onegrid_2 into phi_2
+    phi_2.ParallelCopy(phi_onegrid_2, 0, 0, 1);
 
     // copy data to a full-sized MultiFab
     // this involves copying the complex conjugate from the half-sized field
@@ -361,7 +392,7 @@ int main (int argc, char* argv[])
      }
 
      // storage for variables to write to plotfile
-     MultiFab plotfile(ba, dm, 5, 0);
+     MultiFab plotfile(ba, dm, 6, 0);
 
      // copy phi, phi_dft_real, and phi_dft_imag, phi_dft_magn, and phi_dft_phase into plotfile
      MultiFab::Copy(plotfile, phi         , 0, 0, 1, 0);
@@ -369,6 +400,7 @@ int main (int argc, char* argv[])
      MultiFab::Copy(plotfile, phi_dft_imag, 0, 2, 1, 0);
      MultiFab::Copy(plotfile, phi_dft_magn, 0, 3, 1, 0);
      MultiFab::Copy(plotfile, phi_dft_phase, 0, 4, 1, 0);
+     MultiFab::Copy(plotfile, phi_2        , 0, 5, 1, 0);
 
      // time and step are dummy variables required to WriteSingleLevelPlotfile
      Real time = 0.;
@@ -381,7 +413,7 @@ int main (int argc, char* argv[])
      // 4: geometry object
      // 5: "time" of plotfile; not relevant in this example
      // 6: "time step" of plotfile; not relevant in this example
-     WriteSingleLevelPlotfile("plt", plotfile, {"phi", "phi_dft_real", "phi_dft_imag","phi_dft_magn","phi_dft_phase"}, geom, time, step);
+     WriteSingleLevelPlotfile("plt", plotfile, {"phi", "phi_dft_real", "phi_dft_imag","phi_dft_magn","phi_dft_phase", "phi_2"}, geom, time, step);
 
      // Call the timer again and compute the maximum difference between the start time
      // and stop time over all processors
