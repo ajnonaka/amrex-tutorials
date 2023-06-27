@@ -284,7 +284,7 @@ int main (int argc, char* argv[])
                    phi_onegrid_2[mfi].dataPtr(),
                    FFTW_ESTIMATE);
 #elif (AMREX_SPACEDIM == 3)
-      bplan = fftw_plan_dft_c2r_3d(fft_size[2], fft_size[1], fft_size[0]
+      bplan = fftw_plan_dft_c2r_3d(fft_size[2], fft_size[1], fft_size[0],
                    reinterpret_cast<FFTcomplex*>
            (spectral_field.back()->dataPtr()),
            phi_onegrid_2[mfi].dataPtr(),
