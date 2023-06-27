@@ -264,22 +264,42 @@ int main (int argc, char* argv[])
     // now we have completed the fft and the fft is inside spectral_field
     // take inverse fft of spectral_field and put it in phi_onegrid_2
     //
-    //
 
+    Vector<FFTplan> backward_plan;
+
+    for (MFIter mfi(phi_onegrid_2); mfi.isValid(); ++mfi) {
+       
+       // grab a single box including ghost cell range
+       Box realspace_bx = mfi.fabbox();
+
+       // size of box including ghost cell range
+       IntVect fft_size = realspace_bx.length(); // This will be different for hybrid FFT
+
+        // Probably all kinds of stuff gotta go right here!!!!!!!!!!!!
+
+        FFTplan bplan;
 
 #if (AMREX_SPACEDIM == 2)
-      fplan = fftw_plan_dft_r2c_2d(fft_size[1], fft_size[0],
-                   phi_onegrid[mfi].dataPtr(),
+      bplan = fftw_plan_dft_c2r_2d(fft_size[1], fft_size[0],
                    reinterpret_cast<FFTcomplex*>
-                   (spectral_field.back()->dataPtr()),
+		   (spectral_field.back()->dataPtr()),
+                   phi_onegrid_2[mfi].dataPtr(),
                    FFTW_ESTIMATE);
 #elif (AMREX_SPACEDIM == 3)
-      fplan = fftw_plan_dft_r2c_3d(fft_size[2], fft_size[1], fft_size[0],
-                   phi_onegrid[mfi].dataPtr(),
+      bplan = fftw_plan_dft_c2r_3d(fft_size[2], fft_size[1], fft_size[0]
                    reinterpret_cast<FFTcomplex*>
-                   (spectral_field.back()->dataPtr()),
+		   (spectral_field.back()->dataPtr()),
+		   phi_onegrid_2[mfi].dataPtr(),		   
                    FFTW_ESTIMATE);
 #endif
+
+    backward_plan.push_back(bplan);// This adds an instance of bplan to the end of backward_plan
+    }
+
+    for (MFIter mfi(phi_onegrid_2); mfi.isValid(); ++mfi) {
+      int i = mfi.LocalIndex();
+      fftw_execute(backward_plan[i]);
+    }
 
     // copy contents of phi_onegrid_2 into phi_2
     phi_2.ParallelCopy(phi_onegrid_2, 0, 0, 1);
