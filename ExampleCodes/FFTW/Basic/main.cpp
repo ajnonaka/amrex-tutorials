@@ -112,7 +112,7 @@ int main (int argc, char* argv[])
     MultiFab phi_2       (ba, dm, 1, 0);
 
     phi_2.setVal(0.); // delete this line later once inverse fft is working
-    
+
     // **********************************
     // INITIALIZE DATA
     // **********************************
@@ -268,28 +268,26 @@ int main (int argc, char* argv[])
     Vector<FFTplan> backward_plan;
 
     for (MFIter mfi(phi_onegrid_2); mfi.isValid(); ++mfi) {
-       
+
        // grab a single box including ghost cell range
        Box realspace_bx = mfi.fabbox();
 
        // size of box including ghost cell range
        IntVect fft_size = realspace_bx.length(); // This will be different for hybrid FFT
 
-        // Probably all kinds of stuff gotta go right here!!!!!!!!!!!!
-
-        FFTplan bplan;
+       FFTplan bplan;
 
 #if (AMREX_SPACEDIM == 2)
       bplan = fftw_plan_dft_c2r_2d(fft_size[1], fft_size[0],
                    reinterpret_cast<FFTcomplex*>
-		   (spectral_field.back()->dataPtr()),
+           (spectral_field.back()->dataPtr()),
                    phi_onegrid_2[mfi].dataPtr(),
                    FFTW_ESTIMATE);
 #elif (AMREX_SPACEDIM == 3)
       bplan = fftw_plan_dft_c2r_3d(fft_size[2], fft_size[1], fft_size[0]
                    reinterpret_cast<FFTcomplex*>
-		   (spectral_field.back()->dataPtr()),
-		   phi_onegrid_2[mfi].dataPtr(),		   
+           (spectral_field.back()->dataPtr()),
+           phi_onegrid_2[mfi].dataPtr(),
                    FFTW_ESTIMATE);
 #endif
 
