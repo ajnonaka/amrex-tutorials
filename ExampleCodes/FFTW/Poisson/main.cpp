@@ -125,10 +125,6 @@ int main (int argc, char* argv[])
     // **********************************
     // INITIALIZE DATA
     // **********************************
-
-    double omega = M_PI/2.0;
-
-    // loop over boxes
     for (MFIter mfi(phi); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.validbox();
@@ -147,11 +143,6 @@ int main (int argc, char* argv[])
             Real z = (AMREX_SPACEDIM==3) ? (k+0.5) * dx[2] : 0.;
 
             phi_ptr(i,j,k) = std::exp(-10.*((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5)));
-
-            // phi_ptr(i,j,k) = std::sin(4*M_PI*x/prob_hi_x + omega)*std::sin(2*M_PI*y/prob_hi_y + omega) + std::sin(4*M_PI*x/prob_hi_x + omega)*std::sin(6*M_PI*y/prob_hi_y + omega);
-            // if (AMREX_SPACEDIM == 3) {
-                // phi_ptr(i,j,k) *= std::sin(2*M_PI*z/prob_hi_z + omega);
-            // }
 
         });
     }
@@ -229,24 +220,25 @@ int main (int argc, char* argv[])
       cufftResult result = cufftPlan3d(&fplan, fft_size[2], fft_size[1], fft_size[0], CUFFT_D2Z);
       if (result != CUFFT_SUCCESS) {
     AllPrint() << " cufftplan3d forward failed! Error: "
-              << cufftErrorToString(result) << "\n";
+
+              << cuffterrortostring(result) << "\n";
       }
 #endif
 
 #else // host
 
-#if (AMREX_SPACEDIM == 2)
+#if (amrex_spacedim == 2)
       fplan = fftw_plan_dft_r2c_2d(fft_size[1], fft_size[0],
-                   phi_onegrid[mfi].dataPtr(),
-                   reinterpret_cast<FFTcomplex*>
-                   (spectral_field.back()->dataPtr()),
-                   FFTW_ESTIMATE);
-#elif (AMREX_SPACEDIM == 3)
+                   phi_onegrid[mfi].dataptr(),
+                   reinterpret_cast<fftcomplex*>
+                   (spectral_field.back()->dataptr()),
+                   fftw_estimate);
+#elif (amrex_spacedim == 3)
       fplan = fftw_plan_dft_r2c_3d(fft_size[2], fft_size[1], fft_size[0],
-                   phi_onegrid[mfi].dataPtr(),
-                   reinterpret_cast<FFTcomplex*>
-                   (spectral_field.back()->dataPtr()),
-                   FFTW_ESTIMATE);
+                   phi_onegrid[mfi].dataptr(),
+                   reinterpret_cast<fftcomplex*>
+                   (spectral_field.back()->dataptr()),
+                   fftw_estimate);
 #endif
 
 #endif
@@ -254,53 +246,53 @@ int main (int argc, char* argv[])
       forward_plan.push_back(fplan);
     }
 
-    ParallelDescriptor::Barrier();
+    paralleldescriptor::barrier();
 
-    // ForwardTransform
-    for (MFIter mfi(phi_onegrid); mfi.isValid(); ++mfi) {
-      int i = mfi.LocalIndex();
-#ifdef AMREX_USE_CUDA
-      cufftSetStream(forward_plan[i], Gpu::gpuStream());
-      cufftResult result = cufftExecD2Z(forward_plan[i],
-                    phi_onegrid[mfi].dataPtr(),
-                    reinterpret_cast<FFTcomplex*>
-                    (spectral_field[i]->dataPtr()));
-      if (result != CUFFT_SUCCESS) {
-    AllPrint() << " forward transform using cufftExec failed! Error: "
-              << cufftErrorToString(result) << "\n";
+    // forwardtransform
+    for (mfiter mfi(phi_onegrid); mfi.isvalid(); ++mfi) {
+      int i = mfi.localindex();
+#ifdef amrex_use_cuda
+      cufftsetstream(forward_plan[i], gpu::gpustream());
+      cufftresult result = cufftexecd2z(forward_plan[i],
+                    phi_onegrid[mfi].dataptr(),
+                    reinterpret_cast<fftcomplex*>
+                    (spectral_field[i]->dataptr()));
+      if (result != cufft_success) {
+    allprint() << " forward transform using cufftexec failed! error: "
+              << cuffterrortostring(result) << "\n";
       }
 #else
       fftw_execute(forward_plan[i]);
 #endif
     }
 
-    // copy data to a full-sized MultiFab
+    // copy data to a full-sized multifab
     // this involves copying the complex conjugate from the half-sized field
-    // into the appropriate place in the full MultiFab
-    for (MFIter mfi(phi_dft_real_onegrid); mfi.isValid(); ++mfi) {
+    // into the appropriate place in the full multifab
+    for (mfiter mfi(phi_dft_real_onegrid); mfi.isvalid(); ++mfi) {
 
-      Array4< GpuComplex<Real> > spectral = (*spectral_field[0]).array();
+      array4< gpucomplex<real> > spectral = (*spectral_field[0]).array();
 
-      Array4<Real> const& realpart = phi_dft_real_onegrid.array(mfi);
-      Array4<Real> const& imagpart = phi_dft_imag_onegrid.array(mfi);
+      array4<real> const& realpart = phi_dft_real_onegrid.array(mfi);
+      array4<real> const& imagpart = phi_dft_imag_onegrid.array(mfi);
 
-      Box bx = mfi.fabbox();
+      box bx = mfi.fabbox();
 
-      ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      parallelfor(bx, [=] amrex_gpu_device (int i, int j, int k) noexcept
       {
       /*
-        Copying rules:
+        copying rules:
 
-        For domains from (0,0,0) to (Nx-1,Ny-1,Nz-1)
+        for domains from (0,0,0) to (nx-1,ny-1,nz-1)
 
-        For any cells with i index >= Nx/2, these values are complex conjugates of the corresponding
-        entry where (Nx-i,Ny-j,Nz-k) UNLESS that index is zero, in which case you use 0.
+        for any cells with i index >= nx/2, these values are complex conjugates of the corresponding
+        entry where (nx-i,ny-j,nz-k) unless that index is zero, in which case you use 0.
 
         e.g. for an 8^3 domain, any cell with i index
 
-        Cell (6,2,3) is complex conjugate of (2,6,5)
+        cell (6,2,3) is complex conjugate of (2,6,5)
 
-        Cell (4,1,0) is complex conjugate of (4,7,0)  (note that the FFT is computed for 0 <= i <= Nx/2)
+        cell (4,1,0) is complex conjugate of (4,7,0)  (note that the fft is computed for 0 <= i <= nx/2)
       */
           if (i <= bx.length(0)/2) {
           // copy value
@@ -313,9 +305,9 @@ int main (int argc, char* argv[])
               int jloc, kloc;
 
               jloc = (j == 0) ? 0 : bx.length(1)-j;
-#if (AMREX_SPACEDIM == 2)
+#if (amrex_spacedim == 2)
               kloc = 0;
-#elif (AMREX_SPACEDIM == 3)
+#elif (amrex_spacedim == 3)
               kloc = (k == 0) ? 0 : bx.length(2)-k;
 #endif
 
@@ -328,21 +320,20 @@ int main (int argc, char* argv[])
       });
     }
 
-    // Determine the grid size in each direction.
-    Real grid_size_x = std::abs(prob_hi_x - prob_lo_x);
-    Real grid_size_y = std::abs(prob_hi_y - prob_lo_y);
-    Real grid_size_z = std::abs(prob_hi_z - prob_lo_z);
+    // determine the grid size in each direction.
+    real grid_size_x = std::abs(prob_hi_x - prob_lo_x);
+    real grid_size_y = std::abs(prob_hi_y - prob_lo_y);
+    real grid_size_z = std::abs(prob_hi_z - prob_lo_z);
 
 
-    // Now we take the standard FFT and scale it by 1/k^2
-    for (MFIter mfi(phi_dft_real_onegrid); mfi.isValid(); ++mfi)
+    // now we take the standard fft and scale it by 1/k^2
+    for (mfiter mfi(phi_dft_real_onegrid); mfi.isvalid(); ++mfi)
     {
-        Array4< GpuComplex<Real> > spectral = (*spectral_field[0]).array();
+        array4< gpucomplex<real> > spectral = (*spectral_field[0]).array();
 
-        const Box& bx = mfi.fabbox();
+        const box& bx = mfi.fabbox();
 
-        // Set the value of the magnitude and phase angle using the real and imaginary parts of the dft
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        parallelfor(bx, [=] amrex_gpu_device(int i, int j, int k)
         {
             if (i <= bx.length(0)/2) {
 
@@ -413,7 +404,7 @@ int main (int argc, char* argv[])
       int i = mfi.LocalIndex();
       fftw_execute(backward_plan[i]);
 
-      // Must divide each point by the total number of points in the domain for properly scaled inverse FFT
+      // Standard scaling after fft and inverse fft using FFTW
 #if (AMREX_SPACEDIM == 2)
       phi_onegrid_2[mfi] /= n_cell_x*n_cell_y;
 #elif (AMREX_SPACEDIM == 3)
