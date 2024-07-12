@@ -141,6 +141,7 @@ void main_main ()
     // time = starting time in the simulation
     Real time = 0.0;
 
+    amrex::Print() << "dt = " << dt << std::endl;
     amrex::Print() << "Explicit diffusion limit of dt = " << dx[0]*dx[0] / (2.*AMREX_SPACEDIM*D) << std::endl;
     amrex::Print() << "Explicit reaction limit of dt = " << 2./lambda << std::endl;
     
