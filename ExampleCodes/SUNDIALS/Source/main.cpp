@@ -34,6 +34,12 @@ void main_main ()
     // how often to write a plotfile
     int plot_int;
 
+    // diffusion coefficient dphi/dt = D lap(phi)
+    Real D;
+
+    // reaction coefficient dphi/dt = -lambda * phi
+    Real lambda;
+
     // time step
     Real dt;
 
@@ -62,6 +68,12 @@ void main_main ()
         nsteps = 10;
         pp.query("nsteps",nsteps);
 
+        // read in diffusion and reaction coefficients
+        D = 1.;
+        pp.query("D",D);
+        lambda = 0.;
+        pp.query("lambda",lambda);
+        
         // Default plot_int to -1, allow us to set it to something else in the inputs file
         //  If plot_int < 0 then no plot files will be written
         plot_int = -1;
@@ -129,6 +141,9 @@ void main_main ()
     // time = starting time in the simulation
     Real time = 0.0;
 
+    amrex::Print() << "Explicit diffusion limit of dt = " << dx[0]*dx[0] / (2.*AMREX_SPACEDIM*D) << std::endl;
+    amrex::Print() << "Explicit reaction limit of dt = " << 2./lambda << std::endl;
+    
     // **********************************
     // INITIALIZE DATA
 
@@ -183,12 +198,12 @@ void main_main ()
             // fill the right-hand-side for phi
             amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                phi_rhs_array(i,j,k) = ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0])
-                                         +(phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1])
+                phi_rhs_array(i,j,k) = D * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0])
+                                            +(phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1])
 #if (AMREX_SPACEDIM == 3)
-                                         +(phi_array(i,j,k+1) - 2.*phi_array(i,j,k) + phi_array(i,j,k-1)) / (dx[2]*dx[2])
+                                            +(phi_array(i,j,k+1) - 2.*phi_array(i,j,k) + phi_array(i,j,k-1)) / (dx[2]*dx[2])
 #endif
-                                         );
+                                            ) - lambda*phi_array(i,j,k);
             });
         }
     };
