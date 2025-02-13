@@ -132,11 +132,13 @@ int main (int argc, char* argv[])
         mlmg.solve({&phi}, {&q}, tol_rel, tol_abs);
 
         //// store plotfile variables; q and phi
-        //MultiFab plotfile_mf(grids, dmap, 2, 0, MFInfo(), factory);
+        MultiFab plotfile_mf(grids, dmap, 2, 0, MFInfo(), factory);
+        amrex::average_node_to_cellcenter(plotfile_mf, 0, q, 0, 1);
+        amrex::average_node_to_cellcenter(plotfile_mf, 1, phi, 0, 1);
         //MultiFab::Copy(plotfile_mf,  q,0,0,1,0);
         //MultiFab::Copy(plotfile_mf,phi,0,1,1,0);
 
-        //EB_WriteSingleLevelPlotfile("plt", plotfile_mf, {"q", "phi"}, geom, 0.0, 0);
+        EB_WriteSingleLevelPlotfile("plt", plotfile_mf, {"q", "phi"}, geom, 0.0, 0);
     }
 
     amrex::Finalize();
