@@ -4,6 +4,21 @@
 #include <AMReX_EBMultiFabUtil.H>
 #include <AMReX_EB2.H>
 #include <AMReX_EB2_IF.H>
+
+
+#include <AMReX_EB2_IF_Union.H>
+#include <AMReX_EB2_IF_Intersection.H>
+#include <AMReX_EB2_IF_Complement.H>
+#include <AMReX_EB2_IF_Scale.H>
+#include <AMReX_EB2_IF_Translation.H>
+#include <AMReX_EB2_IF_Lathe.H>
+#include <AMReX_EB2_IF_Box.H>
+#include <AMReX_EB2_IF_Cylinder.H>
+#include <AMReX_EB2_IF_Ellipsoid.H>
+#include <AMReX_EB2_IF_Sphere.H>
+#include <AMReX_EB2_IF_Plane.H>
+
+#include <AMReX_ParmParse.H>
 #include <AMReX_MLEBABecLap.H>
 #include <AMReX_MLEBNodeFDLaplacian.H>
 #include <AMReX_PlotFileUtil.H>
@@ -50,7 +65,23 @@ int main (int argc, char* argv[])
         int required_coarsening_level = 0; // typically the same as the max AMR level index
         int max_coarsening_level = 100;    // typically a huge number so MG coarsens as much as possible
         // build a simple geometry using the "eb2." parameters in the inputs file
-        EB2::Build(geom, required_coarsening_level, max_coarsening_level);
+        ParmParse pp("eb2");
+        std::string geom_type;
+        pp.get("geom_type", geom_type);
+        if (geom_type == "merge") {
+            EB2::SphereIF sphere1(0.25,{AMREX_D_DECL(0.5,0.5,0.5)},true);
+            EB2::SphereIF sphere2(0.1,{AMREX_D_DECL(0.5,0.5,0.5)},true);
+            auto twospheres = EB2::makeUnion(sphere1,sphere2);
+            EB2::BoxIF box1({AMREX_D_DECL(0.25,0.0,0)},
+                           {AMREX_D_DECL(0.75, 0.25,0)},false);
+            EB2::BoxIF box2({AMREX_D_DECL(0.25,0.75,0)},
+                            {AMREX_D_DECL(0.75,1.  ,0)},false);
+            auto twoboxes = EB2::makeUnion(box1,box2);
+            auto gshop = EB2::makeShop(twoboxes);
+            EB2::Build(gshop, geom, required_coarsening_level, max_coarsening_level);
+        } else {
+            EB2::Build(geom, required_coarsening_level, max_coarsening_level);
+        }
 
         const EB2::IndexSpace& eb_is = EB2::IndexSpace::top();
         const EB2::Level& eb_level = eb_is.getLevel(geom);
