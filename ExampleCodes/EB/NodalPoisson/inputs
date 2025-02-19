@@ -1,8 +1,8 @@
 amrex.fpe_trap_invalid=1
 
 verbose = 2
-n_cell = 128
-max_grid_size = 32
+n_cell = 256 128
+max_grid_size = 256
 
 eb2.geom_type = merge
 #eb2.geom_type = sphere

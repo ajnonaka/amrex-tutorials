@@ -37,12 +37,13 @@ int main (int argc, char* argv[])
         int verbose = 1;
         int n_cell = 128;
         int max_grid_size = 32;
-
+        amrex::Vector<int> n_cell_2d;
         // read parameters
         {
             ParmParse pp;
             pp.query("verbose", verbose);
-            pp.query("n_cell", n_cell);
+        //    pp.query("n_cell", n_cell);
+            pp.queryarr("n_cell", n_cell_2d);
             pp.query("max_grid_size", max_grid_size);
         }
 
@@ -50,10 +51,10 @@ int main (int argc, char* argv[])
         BoxArray grids;
         DistributionMapping dmap;
         {
-            RealBox rb({AMREX_D_DECL(0.,0.,0.)}, {AMREX_D_DECL(1.,1.,1.)});
+            RealBox rb({AMREX_D_DECL(-.1035,-0.0527,-0.0527)}, {AMREX_D_DECL(0.1035,0.0527,0.0527)});
             Array<int,AMREX_SPACEDIM> is_periodic{AMREX_D_DECL(1,1,1)};
             Box domain(IntVect{AMREX_D_DECL(0,0,0)},
-                       IntVect{AMREX_D_DECL(n_cell-1,n_cell-1,n_cell-1)});
+                       IntVect{AMREX_D_DECL(n_cell_2d[0]-1,n_cell_2d[1]-1,0)});
             geom.define(domain, rb, CoordSys::cartesian, is_periodic);
 
             grids.define(domain); // define the BoxArray to be a single grid
@@ -69,13 +70,10 @@ int main (int argc, char* argv[])
         std::string geom_type;
         pp.get("geom_type", geom_type);
         if (geom_type == "merge") {
-            EB2::SphereIF sphere1(0.25,{AMREX_D_DECL(0.5,0.5,0.5)},true);
-            EB2::SphereIF sphere2(0.1,{AMREX_D_DECL(0.5,0.5,0.5)},true);
-            auto twospheres = EB2::makeUnion(sphere1,sphere2);
-            EB2::BoxIF box1({AMREX_D_DECL(0.25,0.0,0)},
-                           {AMREX_D_DECL(0.75, 0.25,0)},false);
-            EB2::BoxIF box2({AMREX_D_DECL(0.25,0.75,0)},
-                            {AMREX_D_DECL(0.75,1.  ,0)},false);
+            EB2::BoxIF box1({AMREX_D_DECL(-0.052,-0.0527,0)},
+                           {AMREX_D_DECL(0.052, -0.0128,0)},false);
+            EB2::BoxIF box2({AMREX_D_DECL(-0.052,0.0128,0)},
+                            {AMREX_D_DECL(0.052,0.0527  ,0)},false);
             auto twoboxes = EB2::makeUnion(box1,box2);
             auto gshop = EB2::makeShop(twoboxes);
             EB2::Build(gshop, geom, required_coarsening_level, max_coarsening_level);
@@ -101,7 +99,7 @@ int main (int argc, char* argv[])
         MultiFab q  (nba, dmap, 1, 0, MFInfo(), factory);
         MultiFab phi(nba, dmap, 1, 0, MFInfo(), factory);
 
-        InitData(q);
+        InitData(q, n_cell_2d[0]/2, n_cell_2d[1]/2);
 
         LPInfo info;
 

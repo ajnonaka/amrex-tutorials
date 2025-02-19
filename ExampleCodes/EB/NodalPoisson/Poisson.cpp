@@ -2,7 +2,7 @@
 
 using namespace amrex;
 
-void InitData (MultiFab& State)
+void InitData (amrex::MultiFab& State, int icenter, int jcenter)
 {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
@@ -14,7 +14,7 @@ void InitData (MultiFab& State)
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            if (i==70 && j==70 && k==0) {
+            if (i==icenter && j==jcenter) {
                 q(i,j,k) = 1.0;
             } else {
                 q(i,j,k) = 0.0;

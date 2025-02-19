@@ -3,6 +3,6 @@
 
 #include <AMReX_EBMultiFabUtil.H>
 
-void InitData (amrex::MultiFab& State);
+void InitData (amrex::MultiFab& State, int icenter, int jcenter);
 
 #endif
