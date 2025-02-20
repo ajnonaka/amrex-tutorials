@@ -167,6 +167,7 @@ int main (int argc, char* argv[])
             gmsolve.solve(phi, q, tol_rel, tol_abs);
             amrex::Vector<amrex::MultiFab> vmf;
             vmf.emplace_back(phi, amrex::make_alias, 0, phi.nComp());
+            linop.postSolve(vmf);
         } else {
             mlmg.solve({&phi}, {&q}, tol_rel, tol_abs);
         }
