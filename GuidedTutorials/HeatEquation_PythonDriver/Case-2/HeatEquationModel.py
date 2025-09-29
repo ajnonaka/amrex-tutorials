@@ -64,11 +64,11 @@ def postprocess_function(multifab: amr.MultiFab, geom: amr.Geometry) -> np.ndarr
     prob_hi = geom.data().ProbHi()
     
     # Calculate center coordinates
-    center_coords = [(prob_lo[i] + prob_hi[i]) / 2.0 for i in range(geom.Dim())]
+    center_coords = [(prob_lo[i] + prob_hi[i]) / 2.0 for i in range(3)]
     
     # Find the cell index closest to center
     center_indices = []
-    for i in range(geom.Dim()):
+    for i in range(3):
         idx = int((center_coords[i] - prob_lo[i]) / dx[i])
         center_indices.append(idx)
     
@@ -283,3 +283,37 @@ class HeatEquationModel(SimulationModel):
 
     def get_outnames(self) -> List[str]:
         return ["max", "mean", "std", "integral", "center"]
+
+if __name__ == "__main__":
+
+    # Initialize AMReX
+    amr.initialize([])
+
+    # Create model using ParmParse to read from inputs file
+    model = HeatEquationModel(use_parmparse=True)
+
+    print(f"Heat equation model initialized with:")
+    print(f"  n_cell = {model.n_cell}")
+    print(f"  max_grid_size = {model.max_grid_size}")
+    print(f"  nsteps = {model.nsteps}")
+    print(f"  plot_int = {model.plot_int}")
+    print(f"  dt = {model.dt}")
+
+    # Test with random parameters
+    test_params = np.array([
+        [1.0, 1.0, 0.01],   # baseline
+        [2.0, 1.5, 0.02],   # higher diffusion, higher amplitude
+        [0.5, 2.0, 0.005]   # lower diffusion, higher amplitude, narrower
+    ])
+
+    print("\nRunning heat equation with parameters:")
+    print("  [diffusion, amplitude, width]")
+    print(test_params)
+
+    outputs = model(test_params)
+
+    print("\nResults [max, mean, std, integral, center]:")
+    print(outputs)
+
+    # Finalize AMReX
+    amr.finalize()
