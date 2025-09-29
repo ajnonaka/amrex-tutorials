@@ -203,92 +203,67 @@ function extract_minmax_from_cell_header {
 
 # Function to get the last plotfile in a directory
 function get_last_plotfile {
-    if [ -z $1 ]; then
-        echo ""
-        return
-    else
-        dir=$1
-    fi
-
-    if [ ! -d $dir ]; then
+    local dir=${1:-.}
+    
+    if [ ! -d "$dir" ]; then
         echo ""
         return
     fi
 
-    plotfileList=""
-    plotfileNums=""
-
-    # Search for plotfiles with different digit patterns (7, 6, 5 digits)
-    plotfileList+=" $(find "$dir" -maxdepth 1 -type d -name "*plt???????" | sort -r)"
+    echo "Searching for plotfiles in: $dir" >&2
+    
+    # Find all plotfile directories, sorted by name (which sorts numerically for this format)
+    local plotfiles=$(find "$dir" -maxdepth 1 -type d -name "plt*" | sort -V)
+    
+    # Also check output subdirectory if it exists
     if [ -d "$dir/output" ]; then
-        plotfileList+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt???????" | sort -r)"
+        local output_plotfiles=$(find "$dir/output" -maxdepth 1 -type d -name "plt*" | sort -V)
+        plotfiles="$plotfiles $output_plotfiles"
     fi
-    plotfileNums+=" $(find "$dir" -maxdepth 1 -type d -name "*plt???????" | awk -F/ '{ print $NF }' | sort -r)"
-    if [ -d "$dir/output" ]; then
-        plotfileNums+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt???????" | awk -F/ '{ print $NF }' | sort -r)"
-    fi
-
-    plotfileList+=" $(find "$dir" -maxdepth 1 -type d -name "*plt??????" | sort -r)"
-    if [ -d "$dir/output" ]; then
-        plotfileList+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt??????" | sort -r)"
-    fi
-    plotfileNums+=" $(find "$dir" -maxdepth 1 -type d -name "*plt??????" | awk -F/ '{ print $NF }' | sort -r)"
-    if [ -d "$dir/output" ]; then
-        plotfileNums+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt??????" | awk -F/ '{ print $NF }' | sort -r)"
-    fi
-
-    plotfileList+=" $(find "$dir" -maxdepth 1 -type d -name "*plt?????" | sort -r)"
-    if [ -d "$dir/output" ]; then
-        plotfileList+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt?????" | sort -r)"
-    fi
-    plotfileNums+=" $(find "$dir" -maxdepth 1 -type d -name "*plt?????" | awk -F/ '{ print $NF }' | sort -r)"
-    if [ -d "$dir/output" ]; then
-        plotfileNums+=" $(find "$dir/output" -maxdepth 1 -type d -name "*plt?????" | awk -F/ '{ print $NF }' | sort -r)"
-    fi
-
-    if [ -z "$plotfileList" ]; then
+    
+    echo "Found plotfiles: $plotfiles" >&2
+    
+    if [ -z "$plotfiles" ]; then
         echo ""
         return
     fi
 
     # Find the latest plotfile with a complete Header
-    for pltNum in $plotfileNums
-    do
-        for pltFile in $plotfileList
-        do
-            currBaseName=$(echo $pltFile | awk -F/ '{ print $NF }')
-
-            if [ "$currBaseName" == "$pltNum" ]; then
-                if [ -f ${pltFile}/Header ]; then
-                    plotfile=$pltFile
-                    break
-                fi
-            fi
-        done
-
-        if [ ! -z $plotfile ]; then
-            break
+    local last_plotfile=""
+    for pltFile in $plotfiles; do
+        echo "Checking plotfile: $pltFile" >&2
+        if [ -f "${pltFile}/Header" ]; then
+            last_plotfile=$pltFile
+            echo "Valid plotfile found: $pltFile" >&2
+        else
+            echo "No Header found in: $pltFile" >&2
         fi
     done
 
-    # Extract out the search directory from the result
-    plotfile=$(echo ${plotfile#$dir/})
-    plotfile=$(echo ${plotfile#$dir})
-
-    echo $plotfile
+    if [ ! -z "$last_plotfile" ]; then
+        # Extract just the plotfile name relative to the search directory
+        local plotfile_name=$(basename "$last_plotfile")
+        echo "Returning plotfile: $plotfile_name" >&2
+        echo "$plotfile_name"
+    else
+        echo "No valid plotfiles found" >&2
+        echo ""
+    fi
 }
 
-# Function to run a single simulation
+# Function to run a single simulation with proper output handling
 function run_single_simulation {
     local run_counter=$1
     local param_values=("${@:2}")
     
     # Create subdirectory for this run
     local run_dir="run_$(printf "%04d" $run_counter)"
+    echo "Creating directory: $run_dir" >&2
     mkdir -p "$run_dir"
     
     # Change to run directory
     cd "$run_dir"
+    echo "Changed to directory: $(pwd)" >&2
     
     # Build command line arguments
     local cmd_args=""
@@ -301,55 +276,91 @@ function run_single_simulation {
         done
     fi
     
-    echo "Running simulation $run_counter with: $cmd_args"
+    # Build the full command
+    local full_command="../$EXE ../$INPUTS $cmd_args"
+    echo "Running: $full_command" >&2
     
-    # Call executable with inputs file and parameters
-    # Format: ./executable inputs param1=value1 param2=value2 ...
-    eval "../$EXE ../$INPUTS $cmd_args"
-    
+    # Run the command and capture output
+    $full_command > simulation.log 2>&1
     local exit_code=$?
     
-    # Return to parent directory
-    cd ..
+    echo "Simulation exit code: $exit_code" >&2
     
-    if [ $exit_code -eq 0 ]; then
-        # Return the run directory name
+    # Check if plotfiles were created (more reliable than exit code for AMReX)
+    local plotfiles_created=$(find . -maxdepth 1 -type d -name "plt*" | wc -l)
+    echo "Number of plotfiles created: $plotfiles_created" >&2
+    
+    if [ $plotfiles_created -gt 0 ]; then
+        echo "Simulation succeeded - plotfiles created" >&2
+        echo "Plotfiles found:" >&2
+        ls -la plt*/ >&2
+        cd ..
+        # ONLY output the directory name to stdout for capture
         echo "$run_dir"
         return 0
     else
-        echo "Error: Simulation failed with exit code $exit_code"
+        echo "Simulation failed - no plotfiles created" >&2
+        echo "Simulation log:" >&2
+        cat simulation.log >&2
+        cd ..
         return 1
     fi
 }
 
-# Function to process a single plotfile and extract data
+# Function to process plotfile with proper output handling
 function process_single_plotfile {
     local run_dir=$1
     local run_counter=$2
     
+    echo "Processing plotfile in $run_dir" >&2
+    echo "Contents of $run_dir:" >&2
+    ls -la "$run_dir/" >&2
+    
     # Get the last plotfile generated
     local plotfile=$(get_last_plotfile "$run_dir")
     
-    if [ -z "$plotfile" ] || [ ! -f "$run_dir/$plotfile/Header" ]; then
-        echo "Error: plotfile header not found in $run_dir" >&2
+    echo "Found plotfile: '$plotfile'" >&2
+    
+    if [ -z "$plotfile" ]; then
+        echo "Error: No plotfile found in $run_dir" >&2
+        return 1
+    fi
+    
+    if [ ! -f "$run_dir/$plotfile/Header" ]; then
+        echo "Error: Header not found at $run_dir/$plotfile/Header" >&2
+        if [ -d "$run_dir/$plotfile" ]; then
+            echo "Contents of $run_dir/$plotfile:" >&2
+            ls -la "$run_dir/$plotfile/" >&2
+        fi
         return 1
     fi
     
     local plotfile_path="$run_dir/$plotfile"
+    echo "Using plotfile path: $plotfile_path" >&2
     
     # Generate outnames.txt from the first plotfile if it doesn't exist
     if [ ! -f "outnames.txt" ]; then
-        echo "Generating outnames.txt from plotfile header..."
+        echo "Generating outnames.txt from plotfile header..." >&2
         cd "$run_dir"
         generate_outnames_from_header "$plotfile/Header"
-        mv outnames.txt ..
+        if [ -f "outnames.txt" ]; then
+            mv outnames.txt ..
+            echo "Created outnames.txt:" >&2
+            cat ../outnames.txt >&2
+        else
+            echo "Error: Failed to create outnames.txt" >&2
+            cd ..
+            return 1
+        fi
         cd ..
     fi
     
-    # Extract min/max values using the function with target coordinates
+    # Extract min/max values
     local result=$(extract_minmax_from_cell_header "$plotfile_path" "$LEVEL" "$TARGET_I" "$TARGET_J" "$TARGET_K" "outnames.txt")
     
     if [ $? -eq 0 ]; then
+        echo "Extracted result: '$result'" >&2
+        # ONLY output the result to stdout for capture
         echo "$result"
         return 0
     else
@@ -358,13 +369,15 @@ function process_single_plotfile {
     fi
 }
 
-# Function to initialize output file with header
+# Function to initialize output file
 function initialize_output_file {
     local output_file=$1
     
+    echo "Initializing output file: $output_file" >&2
     > "$output_file"
     if [ -f "outnames.txt" ]; then
         readarray -t output_names < outnames.txt
         echo "# ${output_names[@]}" >> "$output_file"
+        echo "Added header to $output_file" >&2
     fi
 }

@@ -85,7 +85,7 @@ echo "Using executable: $EXE"
 echo "Using inputs file: $INPUTS"
 echo "Processing level: $LEVEL"
 
-# Function to process all simulations
+# Function to process all simulations with better debugging
 function process_all_simulations {
     local input_file=$1
     local output_file=$2
@@ -106,16 +106,24 @@ function process_all_simulations {
             continue
         fi
         
-        echo "Processing run $run_counter..."
+        echo "=== Processing run $run_counter ==="
+        echo "Parameters: ${param_values[@]}"
         
         # Run the simulation
+        echo "Step 1: Running simulation..."
         local run_dir=$(run_single_simulation $run_counter "${param_values[@]}")
+        local sim_success=$?
         
-        if [ $? -eq 0 ] && [ -d "$run_dir" ]; then
-            # Process the plotfile and extract data
+        echo "Simulation result: exit_code=$sim_success, run_dir='$run_dir'"
+        
+        if [ $sim_success -eq 0 ] && [ -d "$run_dir" ]; then
+            echo "Step 2: Processing plotfile..."
             local result=$(process_single_plotfile "$run_dir" $run_counter)
+            local process_success=$?
             
-            if [ $? -eq 0 ]; then
+            echo "Process result: exit_code=$process_success, result='$result'"
+            
+            if [ $process_success -eq 0 ]; then
                 # Initialize output file on first successful run
                 if [ "$output_initialized" = false ]; then
                     initialize_output_file "$output_file"
@@ -124,24 +132,25 @@ function process_all_simulations {
                 
                 # Write result to output file
                 echo "$result" >> "$output_file"
-                echo "Run $run_counter completed successfully"
+                echo "✓ Run $run_counter completed successfully"
             else
-                echo "Failed to process run $run_counter"
+                echo "✗ Failed to process plotfile for run $run_counter"
             fi
         else
-            echo "Failed to run simulation $run_counter"
+            echo "✗ Failed to run simulation $run_counter"
         fi
         
         ((run_counter++))
+        echo ""
         
     done < "$input_file"
     
     echo "Completed processing $run_counter runs"
-    echo "Output written to $output_file"
-    
-    if [ -f "outnames.txt" ]; then
-        echo "Output variables:"
-        cat outnames.txt
+    if [ -f "$output_file" ]; then
+        echo "Output written to $output_file:"
+        cat "$output_file"
+    else
+        echo "No output file created - all runs failed"
     fi
 }
 
