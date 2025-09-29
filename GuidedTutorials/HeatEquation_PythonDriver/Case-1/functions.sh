@@ -310,30 +310,45 @@ function get_last_plotfile {
     fi
 }
 
-# Function to run a single simulation with proper output handling
+# Add debug output to run_single_simulation function
 function run_single_simulation {
     local run_counter=$1
     local param_values=("${@:2}")
-
+    
+    # Debug parameter passing
+    echo "DEBUG: run_counter=$run_counter" >&2
+    echo "DEBUG: param_values=(${param_values[@]})" >&2
+    echo "DEBUG: PARAM_NAMES=(${PARAM_NAMES[@]})" >&2
+    echo "DEBUG: Length of PARAM_NAMES: ${#PARAM_NAMES[@]}" >&2
+    echo "DEBUG: Length of param_values: ${#param_values[@]}" >&2
+    
     # Create subdirectory for this run
     local run_dir="run_$(printf "%04d" $run_counter)"
     echo "Creating directory: $run_dir" >&2
     mkdir -p "$run_dir"
-
+    
     # Change to run directory
     cd "$run_dir"
     echo "Changed to directory: $(pwd)" >&2
-
+    
     # Build command line arguments
     local cmd_args=""
     if [ ${#PARAM_NAMES[@]} -gt 0 ]; then
+        echo "DEBUG: Building command arguments..." >&2
         for i in "${!PARAM_NAMES[@]}"; do
             if [ $i -lt ${#param_values[@]} ]; then
-                # Don't quote the values for AMReX command line format
-                cmd_args+="${PARAM_NAMES[$i]}=${param_values[$i]} "
+                local arg="${PARAM_NAMES[$i]}=${param_values[$i]}"
+                cmd_args+="$arg "
+                echo "DEBUG: Added argument $i: $arg" >&2
+            else
+                echo "DEBUG: Skipping index $i (out of range)" >&2
             fi
         done
+    else
+        echo "DEBUG: PARAM_NAMES array is empty!" >&2
     fi
+    
+    echo "DEBUG: Final cmd_args='$cmd_args'" >&2
 
     # Build the full command
     local full_command="../$EXE ../$INPUTS $cmd_args"

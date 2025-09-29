@@ -24,9 +24,9 @@ TARGET_K=16                      # Target k coordinate
 
 # Create parameter marginal PC file for uncertainty quantification
 cat > param_margpc.txt << EOF
-1.0 0.3
-1.5 0.2
-0.01 0.005
+1.0 0.25
+1.0 0.25
+0.01 0.0025
 EOF
 
 # PC configuration for uncertainty quantification
