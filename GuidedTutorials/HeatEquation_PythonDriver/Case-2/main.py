@@ -10,37 +10,43 @@
 
 import amrex.space3d as amr
 import numpy as np
+from typing import Tuple, Dict, Union
 
 
 def load_cupy():
+    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
     if amr.Config.have_gpu:
         try:
             import cupy as cp
-            xp = cp
             amr.Print("Note: found and will use cupy")
+            return cp
         except ImportError:
             amr.Print("Warning: GPU found but cupy not available! Trying managed memory in numpy...")
             import numpy as np
-            xp = np
+            return np
         if amr.Config.gpu_backend == "SYCL":
             amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
             import numpy as np
-            xp = np
-
+            return np
     else:
         import numpy as np
-        xp = np
         amr.Print("Note: found and will use numpy")
-    return xp
+        return np
 
 
-def main(n_cell=32, max_grid_size=16, nsteps=100, plot_int=100, dt=1e-5,
-         plot_files_output=False, verbose=1, postprocess_function,
-         diffusion_coeff=1.0, init_amplitude=1.0, init_width=0.01):
+def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100, 
+         plot_int: int = 100, dt: float = 1e-5, plot_files_output: bool = False, 
+         verbose: int = 1, diffusion_coeff: float = 1.0, init_amplitude: float = 1.0, 
+         init_width: float = 0.01) -> Tuple[amr.MultiFab, amr.Geometry]:
     """
+    Run the heat equation simulation.
     The main function, automatically called below if called as a script.
+    
+    Returns:
+    --------
+    tuple : (phi_new, geom)
+        Final state and geometry
     """
-    plot_files_output = False
     # CPU/GPU logic
     xp = load_cupy()
 
@@ -161,7 +167,10 @@ def main(n_cell=32, max_grid_size=16, nsteps=100, plot_int=100, dt=1e-5,
             varnames = amr.Vector_string(['phi'])
             amr.write_single_level_plotfile(pltfile, phi_new, varnames, geom, time, step)
 
-def parse_inputs():
+    return phi_new, geom
+
+
+def parse_inputs() -> Dict[str, Union[int, float]]:
     """Parse inputs using AMReX ParmParse interface."""
     pp = amr.ParmParse("")
 
@@ -171,67 +180,39 @@ def parse_inputs():
     if os.path.exists(inputs_file):
         pp.addfile(inputs_file)
 
-    # Read simulation parameters with defaults
-    n_cell = 32
-    pp.query("n_cell", n_cell)
-
-    max_grid_size = 16
-    pp.query("max_grid_size", max_grid_size)
-
-    nsteps = 1000
-    pp.query("nsteps", nsteps)
-
-    plot_int = 100
-    pp.query("plot_int", plot_int)
-
-    dt = 1.0e-5
-    pp.query("dt", dt)
-
-    # Read heat equation model parameters with defaults
-    diffusion_coeff = 1.0
-    pp.query("diffusion_coeff", diffusion_coeff)
-
-    init_amplitude = 1.0
-    pp.query("init_amplitude", init_amplitude)
-
-    init_width = 0.01
-    pp.query("init_width", init_width)
-
-    return {
-        'n_cell': n_cell,
-        'max_grid_size': max_grid_size,
-        'nsteps': nsteps,
-        'plot_int': plot_int,
-        'dt': dt,
-        'diffusion_coeff': diffusion_coeff,
-        'init_amplitude': init_amplitude,
-        'init_width': init_width
+    # Default values
+    defaults = {
+        'n_cell': 32,
+        'max_grid_size': 16,
+        'nsteps': 1000,
+        'plot_int': 100,
+        'dt': 1.0e-5,
+        'diffusion_coeff': 1.0,
+        'init_amplitude': 1.0,
+        'init_width': 0.01
     }
+    
+    # Parse parameters
+    params = {}
+    for key, default_value in defaults.items():
+        value = default_value
+        pp.query(key, value)
+        params[key] = value
+    
+    return params
+
 
 if __name__ == '__main__':
     # Initialize AMReX
     amr.initialize([])
 
-    # TODO Implement parser
-    params = parse_inputs()
-    # Simulation parameters
-    # number of cells on each side of the domain
-    n_cell = 32
-    n_cell = params['n_cell']
-    # size of each box (or grid)
-    max_grid_size = 16
-    max_grid_size = params['max_grid_size']
-    # total steps in simulation
-    nsteps = 1000
-    nsteps = params['nsteps']
-    # how often to write a plotfile
-    plot_int = 100
-    plot_int = params['plot_int']
-    # time step
-    dt = 1e-5
-    dt = params['dt']
-
-    main(n_cell, max_grid_size, nsteps, plot_int, dt)
-
-    # Finalize AMReX
-    amr.finalize()
+    try:
+        # Parse inputs
+        params = parse_inputs()
+        
+        # Run simulation
+        main(**params)
+        
+    finally:
+        # Finalize AMReX
+        amr.finalize()

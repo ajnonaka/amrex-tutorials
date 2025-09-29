@@ -1,156 +1,282 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import amrex.space3d as amr
+from abc import ABC, abstractmethod
 import numpy as np
+from typing import Tuple, List, Optional, Union
+import amrex.space3d as amr
 
 
-def postprocess_function(state_new, geom):
-    # Get the real center of the domain from geometry
-    prob_lo = geom.data().ProbLo()
-    prob_hi = geom.data().ProbHi()
+def load_cupy():
+    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
+    if amr.Config.have_gpu:
+        try:
+            import cupy as cp
+            amr.Print("Note: found and will use cupy")
+            return cp
+        except ImportError:
+            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
+            import numpy as np
+            return np
+        if amr.Config.gpu_backend == "SYCL":
+            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
+            import numpy as np
+            return np
+    else:
+        import numpy as np
+        amr.Print("Note: found and will use numpy")
+        return np
 
-    # Calculate the actual center coordinates
-    center_x = 0.5 * (prob_lo[0] + prob_hi[0])
-    center_y = 0.5 * (prob_lo[1] + prob_hi[1])
-    center_z = 0.5 * (prob_lo[2] + prob_hi[2])
 
-    # Now use these real center coordinates
-    dx = geom.data().CellSize()
-
-    # Convert to index coordinates
-    i_center = int((center_x - prob_lo[0]) / dx[0])
-    j_center = int((center_y - prob_lo[1]) / dx[1]) 
-    k_center = int((center_z - prob_lo[2]) / dx[2])
-
-    center_iv = amr.IntVect3D(i_center, j_center, k_center)
-
-    center_val = None
-    for mfi in state_new:
-        bx = mfi.validbox()
-        if bx.contains(center_iv):
-            state_arr = xp.array(state_new.array(mfi), copy=False)
-            local_i = i_center - bx.small_end[0] + ngx
-            local_j = j_center - bx.small_end[1] + ngy
-            local_k = k_center - bx.small_end[2] + ngz
-            center_val = float(state_arr[0, local_k, local_j, local_i])
-            if xp.__name__ == 'cupy':
-                center_val = float(center_val)
-                break
-
-    if center_val is None:
-        center_val = 0.0d
-
-    # Compute output metrics from final state using PyAMReX built-ins
-    max_val = state_new.max(comp=0, local=False)
-    sum_val = state_new.sum(comp=0, local=False)
-
-    # Get total number of valid cells (excluding ghost zones)
-    total_cells = state_new.box_array().numPts
+def postprocess_function(multifab: amr.MultiFab, geom: amr.Geometry) -> np.ndarray:
+    """
+    Geometry-aware postprocessing function.
+    
+    Parameters:
+    -----------
+    multifab : amr.MultiFab
+        Simulation data
+    geom : amr.Geometry
+        Domain geometry
+        
+    Returns:
+    --------
+    np.ndarray
+        Processed outputs [max, mean, std, integral/sum, center_value]
+    """
+    xp = load_cupy()
+    
+    # Get basic statistics
+    max_val = multifab.max(comp=0, local=False)
+    sum_val = multifab.sum(comp=0, local=False)
+    total_cells = multifab.box_array().numPts
     mean_val = sum_val / total_cells
-
-    # Use L2 norm for standard deviation calculation
-    l2_norm = state_new.norm2(0)
+    
+    # Calculate standard deviation
+    l2_norm = multifab.norm2(0)
     sum_sq = l2_norm**2
     variance = (sum_sq / total_cells) - mean_val**2
     std_val = np.sqrt(max(0, variance))
+    
+    # Get value at center
+    dx = geom.data().CellSize()
+    prob_lo = geom.data().ProbLo()
+    prob_hi = geom.data().ProbHi()
+    
+    # Calculate center coordinates
+    center_coords = [(prob_lo[i] + prob_hi[i]) / 2.0 for i in range(geom.Dim())]
+    
+    # Find the cell index closest to center
+    center_indices = []
+    for i in range(geom.Dim()):
+        idx = int((center_coords[i] - prob_lo[i]) / dx[i])
+        center_indices.append(idx)
+    
+    # Get value at center (default to 0 if can't access)
+    center_val = 0.0
+    try:
+        for mfi in multifab:
+            bx = mfi.validbox()
+            if (center_indices[0] >= bx.small_end[0] and center_indices[0] <= bx.big_end[0] and
+                center_indices[1] >= bx.small_end[1] and center_indices[1] <= bx.big_end[1] and
+                center_indices[2] >= bx.small_end[2] and center_indices[2] <= bx.big_end[2]):
+                
+                state_arr = xp.array(multifab.array(mfi), copy=False)
+                # Convert global to local indices
+                local_i = center_indices[0] - bx.small_end[0]
+                local_j = center_indices[1] - bx.small_end[1] 
+                local_k = center_indices[2] - bx.small_end[2]
+                center_val = float(state_arr[0, local_k, local_j, local_i])
+                break
+    except (IndexError, AttributeError):
+        # Fall back to (0,0,0) if center calculation fails
+        for mfi in multifab:
+            state_arr = xp.array(multifab.array(mfi), copy=False)
+            center_val = float(state_arr[0, 0, 0, 0])
+            break
+    
+    return np.array([max_val, mean_val, std_val, sum_val, center_val])
 
-    integral = sum_val * dx[0] * dx[1] * dx[2]
 
-    return np.array([
-        max_val,
-        mean_val,
-        std_val,
-        integral,
-        center_val
-    ])
+class SimulationModel(ABC):
+    """Base class defining the simulation interface."""
 
-class SimulationModel:
-    """Simple wrapper to make pyamrex simulations callable with parameter arrays."""
-
-    def __init__(self, n_cell=32, max_grid_size=16, nsteps=1000, plot_int=100, dt=1e-5, use_parmparse=False):
-        # Conditionally initialize AMReX
+    def __init__(self, **kwargs):
+        """Initialize AMReX if needed."""
         if not amr.initialized():
             amr.initialize([])
 
-    def __call__(self, params):
+    def __call__(self, params: np.ndarray) -> np.ndarray:
         """
         Run simulation for each parameter set.
 
         Parameters:
         -----------
-        params : numpy.ndarray of shape (n_samples, n_params)
-            (Use get_pnames() to get these names programmatically)
+        params : np.ndarray of shape (n_samples, n_params) or (n_params,)
+            Parameter sets to run
 
         Returns:
         --------
-        numpy.ndarray of shape (n_samples, n_outputs)
-            (Use get_outnames() to get these names programmatically)
+        np.ndarray of shape (n_samples, n_outputs)
+            Simulation outputs
         """
         if params.ndim == 1:
             params = params.reshape(1, -1)
 
         n_samples = params.shape[0]
-        outputs = np.zeros((n_samples, 5))
+        n_outputs = len(self.get_outnames())
+        outputs = np.zeros((n_samples, n_outputs))
 
         for i in range(n_samples):
-            result = step()
-            outputs[i, :] = postprocess_function(results)
-            )
+            try:
+                multifab, varnames, geom = self.evolve(params[i, :])
+                outputs[i, :] = self.postprocess(multifab, varnames, geom)
+            except Exception as e:
+                amr.Print(f"Warning: Simulation failed for parameter set {i}: {e}")
+                outputs[i, :] = np.nan
 
         return outputs
 
-    def get_pnames(self):
+    @abstractmethod
+    def evolve(self, param_set: np.ndarray) -> Tuple[amr.MultiFab, Optional[amr.Vector_string], Optional[amr.Geometry]]:
         """
-        Get parameter names for the heat equation model.
-
+        Run a single simulation step/evolution.
+        
+        Parameters:
+        -----------
+        param_set : np.ndarray
+            Single parameter set
+            
         Returns:
         --------
-        list : Parameter names corresponding to the input dimensions
+        tuple : (multifab, varnames, geom)
+            - multifab: simulation data
+            - varnames: variable names or None
+            - geom: domain geometry or None
         """
-        return []
+        pass
 
-    def get_outnames(self):
+    def postprocess(self, multifab: amr.MultiFab, varnames: Optional[amr.Vector_string], 
+                   geom: Optional[amr.Geometry]) -> np.ndarray:
         """
-        Get output names for the heat equation model.
-
+        Postprocessing function with geometry awareness.
+        
+        Parameters:
+        -----------
+        multifab : amr.MultiFab
+            Simulation data
+        varnames : amr.Vector_string or None
+            Variable names
+        geom : amr.Geometry or None
+            Domain geometry
+            
         Returns:
         --------
-        list : Output names corresponding to the computed quantities
+        np.ndarray
+            Processed outputs [max, mean, std, integral/sum, center_value]
         """
-        return []
+        if geom is not None:
+            return postprocess_function(multifab, geom)
+        else:
+            return self._postprocess_no_geom(multifab)
 
-if __name__ == "__main__":
+    def _postprocess_no_geom(self, multifab: amr.MultiFab) -> np.ndarray:
+        """
+        Postprocessing when geometry is not available.
+        Uses (0,0,0,0) cell instead of center.
+        """
+        xp = load_cupy()
+        
+        # Get value at (0,0,0,0) cell
+        cell_val = 0.0
+        try:
+            for mfi in multifab:
+                state_arr = xp.array(multifab.array(mfi), copy=False)
+                cell_val = float(state_arr[0, 0, 0, 0])  # component 0, cell (0,0,0)
+                break
+        except (IndexError, AttributeError):
+            amr.Print("Warning: Could not access cell (0,0,0,0)")
 
-    # Initialize AMReX
-    amr.initialize([])
+        # Compute statistics
+        max_val = multifab.max(comp=0, local=False)
+        sum_val = multifab.sum(comp=0, local=False)
+        total_cells = multifab.box_array().numPts
+        mean_val = sum_val / total_cells
+        
+        l2_norm = multifab.norm2(0)
+        sum_sq = l2_norm**2
+        variance = (sum_sq / total_cells) - mean_val**2
+        std_val = np.sqrt(max(0, variance))
 
-    # Create model using ParmParse to read from inputs file
-    model = HeatEquationModel(use_parmparse=True)
+        return np.array([max_val, mean_val, std_val, sum_val, cell_val])
 
-    print(f"Heat equation model initialized with:")
-    print(f"  n_cell = {model.n_cell}")
-    print(f"  max_grid_size = {model.max_grid_size}")
-    print(f"  nsteps = {model.nsteps}")
-    print(f"  plot_int = {model.plot_int}")
-    print(f"  dt = {model.dt}")
+    @abstractmethod
+    def get_pnames(self) -> List[str]:
+        """Get parameter names."""
+        pass
 
-    # Test with random parameters
-    test_params = np.array([
-        [1.0, 1.0, 0.01],   # baseline
-        [2.0, 1.5, 0.02],   # higher diffusion, higher amplitude
-        [0.5, 2.0, 0.005]   # lower diffusion, higher amplitude, narrower
-    ])
+    @abstractmethod
+    def get_outnames(self) -> List[str]:
+        """Get output names."""
+        pass
 
-    print("\nRunning heat equation with parameters:")
-    print("  [diffusion, amplitude, width]")
-    print(test_params)
 
-    outputs = model(test_params)
+class HeatEquationModel(SimulationModel):
+    """Heat equation simulation model."""
 
-    print("\nResults [max, mean, std, integral, center]:")
-    print(outputs)
+    def __init__(self, n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 1000, 
+                 plot_int: int = 100, dt: float = 1e-5, use_parmparse: bool = False):
+        super().__init__()
+        
+        if use_parmparse:
+            from main import parse_inputs  # Import here to avoid circular imports
+            params = parse_inputs()
+            self.n_cell = params['n_cell']
+            self.max_grid_size = params['max_grid_size']
+            self.nsteps = params['nsteps']
+            self.plot_int = params['plot_int']
+            self.dt = params['dt']
+        else:
+            self.n_cell = n_cell
+            self.max_grid_size = max_grid_size
+            self.nsteps = nsteps
+            self.plot_int = plot_int
+            self.dt = dt
 
-    # Finalize AMReX
-    amr.finalize()
+    def evolve(self, param_set: np.ndarray) -> Tuple[amr.MultiFab, amr.Vector_string, amr.Geometry]:
+        """
+        Run heat equation simulation.
+        
+        Parameters:
+        -----------
+        param_set : np.ndarray
+            [diffusion_coeff, init_amplitude, init_width]
+        
+        Returns:
+        --------
+        tuple : (phi_new, varnames, geom)
+            Ready to pass to write_single_level_plotfile
+        """
+        from main import main  # Import here to avoid circular imports
+        
+        if len(param_set) != 3:
+            raise ValueError(f"Expected 3 parameters, got {len(param_set)}")
+        
+        phi_new, geom = main(
+            diffusion_coeff=float(param_set[0]),
+            init_amplitude=float(param_set[1]),
+            init_width=float(param_set[2]),
+            n_cell=self.n_cell,
+            max_grid_size=self.max_grid_size,
+            nsteps=self.nsteps,
+            plot_int=self.plot_int,
+            dt=self.dt,
+            plot_files_output=False,
+            verbose=0
+        )
+        
+        varnames = amr.Vector_string(['phi'])
+        return phi_new, varnames, geom
 
+    def get_pnames(self) -> List[str]:
+        return ["diffusion_coefficient", "initial_amplitude", "initial_width"]
+
+    def get_outnames(self) -> List[str]:
+        return ["max", "mean", "std", "integral", "center"]
