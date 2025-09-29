@@ -295,21 +295,31 @@ function run_single_simulation {
     if [ ${#PARAM_NAMES[@]} -gt 0 ]; then
         for i in "${!PARAM_NAMES[@]}"; do
             if [ $i -lt ${#param_values[@]} ]; then
-                cmd_args+="${PARAM_NAMES[$i]}=\"${param_values[$i]}\" "
+                # Don't quote the values for AMReX command line format
+                cmd_args+="${PARAM_NAMES[$i]}=${param_values[$i]} "
             fi
         done
     fi
     
     echo "Running simulation $run_counter with: $cmd_args"
     
-    # Call executable with the parsed inputs
-    eval "../$EXE $cmd_args"
+    # Call executable with inputs file and parameters
+    # Format: ./executable inputs param1=value1 param2=value2 ...
+    eval "../$EXE ../$INPUTS $cmd_args"
+    
+    local exit_code=$?
     
     # Return to parent directory
     cd ..
     
-    # Return the run directory name
-    echo "$run_dir"
+    if [ $exit_code -eq 0 ]; then
+        # Return the run directory name
+        echo "$run_dir"
+        return 0
+    else
+        echo "Error: Simulation failed with exit code $exit_code"
+        return 1
+    fi
 }
 
 # Function to process a single plotfile and extract data
