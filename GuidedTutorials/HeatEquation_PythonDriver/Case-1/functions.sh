@@ -1,6 +1,63 @@
 #!/bin/bash
 # functions.sh - AMReX plotfile processing functions
 
+# Function to generate output names using variable names from Header and components from Cell_H
+function generate_outnames_from_combined_sources {
+    local plotfile_path=$1
+    local level=$2
+    
+    local level_header="$plotfile_path/Level_${level}/Cell_H"
+    local main_header="$plotfile_path/Header"
+    
+    if [ ! -f "$level_header" ] || [ ! -f "$main_header" ]; then
+        echo "Error: Required header files not found"
+        return 1
+    fi
+    
+    echo "DEBUG: Reading from Header: $main_header" >&2
+    echo "DEBUG: Reading from Cell_H: $level_header" >&2
+    
+    # Get number of variables from Header (line 2)
+    local num_variables=$(sed -n '2p' "$main_header")
+    echo "DEBUG: Number of variables from Header: $num_variables" >&2
+    
+    # Get actual number of components from Cell_H data
+    local dimensions_line=$(grep "^[0-9]*,[0-9]*$" "$level_header" | head -1)
+    local num_components=$(echo $dimensions_line | cut -d, -f2)
+    echo "DEBUG: Actual components from Cell_H: $num_components" >&2
+    echo "DEBUG: Cell_H dimensions line: $dimensions_line" >&2
+    
+    # Generate output names file
+    > outnames.txt
+    
+    # Read variable names from Header (starting at line 3)
+    local line_num=3
+    for ((var=0; var<num_variables; var++)); do
+        # Read variable name
+        local var_name=$(sed -n "${line_num}p" "$main_header")
+        echo "DEBUG: Variable $var: name='$var_name'" >&2
+        
+        # Skip the next line in Header (which might be dimensions, not components)
+        ((line_num++))
+        local header_value=$(sed -n "${line_num}p" "$main_header")
+        echo "DEBUG: Skipping Header line $line_num: '$header_value' (probably not components)" >&2
+        ((line_num++))
+        
+        # Generate min/max entries using ACTUAL components from Cell_H
+        for ((comp=0; comp<num_components; comp++)); do
+            echo "${var_name}_${comp}_min" >> outnames.txt
+            echo "${var_name}_${comp}_max" >> outnames.txt
+            echo "DEBUG: Added ${var_name}_${comp}_min and ${var_name}_${comp}_max" >&2
+        done
+        
+        echo "Added variable '$var_name' with $num_components actual components"
+    done
+    
+    echo "Generated outnames.txt with $num_variables variables and $num_components components each"
+    echo "DEBUG: Final outnames.txt contents:" >&2
+    cat outnames.txt >&2
+}
+
 # Function to generate output names from plotfile header
 function generate_outnames_from_header {
     local header_file=$1
@@ -307,14 +364,12 @@ function run_single_simulation {
     fi
 }
 
-# Function to process plotfile with proper output handling
+# Function to process plotfile using combined Header/Cell_H approach
 function process_single_plotfile {
     local run_dir=$1
     local run_counter=$2
     
     echo "Processing plotfile in $run_dir" >&2
-    echo "Contents of $run_dir:" >&2
-    ls -la "$run_dir/" >&2
     
     # Get the last plotfile generated
     local plotfile=$(get_last_plotfile "$run_dir")
@@ -326,33 +381,32 @@ function process_single_plotfile {
         return 1
     fi
     
-    if [ ! -f "$run_dir/$plotfile/Header" ]; then
-        echo "Error: Header not found at $run_dir/$plotfile/Header" >&2
-        if [ -d "$run_dir/$plotfile" ]; then
-            echo "Contents of $run_dir/$plotfile:" >&2
-            ls -la "$run_dir/$plotfile/" >&2
-        fi
+    local plotfile_path="$run_dir/$plotfile"
+    
+    # Check required files exist
+    if [ ! -f "$plotfile_path/Header" ]; then
+        echo "Error: Header not found at $plotfile_path/Header" >&2
         return 1
     fi
     
-    local plotfile_path="$run_dir/$plotfile"
+    if [ ! -f "$plotfile_path/Level_${LEVEL}/Cell_H" ]; then
+        echo "Error: Cell_H not found at $plotfile_path/Level_${LEVEL}/Cell_H" >&2
+        return 1
+    fi
+    
     echo "Using plotfile path: $plotfile_path" >&2
     
-    # Generate outnames.txt from the first plotfile if it doesn't exist
+    # Generate outnames.txt from combined Header/Cell_H if it doesn't exist
     if [ ! -f "outnames.txt" ]; then
-        echo "Generating outnames.txt from plotfile header..." >&2
-        cd "$run_dir"
-        generate_outnames_from_header "$plotfile/Header"
+        echo "Generating outnames.txt from Header variables + Cell_H components..." >&2
+        generate_outnames_from_combined_sources "$plotfile_path" "$LEVEL"
         if [ -f "outnames.txt" ]; then
-            mv outnames.txt ..
             echo "Created outnames.txt:" >&2
-            cat ../outnames.txt >&2
+            cat outnames.txt >&2
         else
             echo "Error: Failed to create outnames.txt" >&2
-            cd ..
             return 1
         fi
-        cd ..
     fi
     
     # Extract min/max values
@@ -360,7 +414,6 @@ function process_single_plotfile {
     
     if [ $? -eq 0 ]; then
         echo "Extracted result: '$result'" >&2
-        # ONLY output the result to stdout for capture
         echo "$result"
         return 0
     else
