@@ -170,8 +170,8 @@ def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100,
     return phi_new, geom
 
 
-def parse_inputs() -> Dict[str, Union[int, float]]:
-    """Parse inputs using AMReX ParmParse interface."""
+def parse_inputs() -> Dict[str, Union[int, float, bool]]:
+    """Parse inputs using AMReX ParmParse to_dict method."""
     pp = amr.ParmParse("")
 
     # Add inputs file if it exists
@@ -180,27 +180,62 @@ def parse_inputs() -> Dict[str, Union[int, float]]:
     if os.path.exists(inputs_file):
         pp.addfile(inputs_file)
 
-    # Default values
+    # Default values with their types
     defaults = {
         'n_cell': 32,
         'max_grid_size': 16,
         'nsteps': 1000,
         'plot_int': 100,
         'dt': 1.0e-5,
+        'plot_files_output': False,
         'diffusion_coeff': 1.0,
         'init_amplitude': 1.0,
         'init_width': 0.01
     }
     
-    # Parse parameters
-    params = {}
-    for key, default_value in defaults.items():
-        value = default_value
-        pp.query(key, value)
-        params[key] = value
-    
-    return params
-
+    try:
+        # Convert entire ParmParse table to Python dictionary
+        all_params = pp.to_dict()
+        
+        # Extract our specific parameters with proper type conversion
+        params = {}
+        for key, default_value in defaults.items():
+            if key in all_params:
+                try:
+                    # Convert string to appropriate type based on default
+                    if isinstance(default_value, int):
+                        params[key] = int(all_params[key])
+                    elif isinstance(default_value, float):
+                        params[key] = float(all_params[key])
+                    elif isinstance(default_value, bool):
+                        # Handle boolean conversion from string
+                        val_str = str(all_params[key]).lower()
+                        if val_str in ('true', '1', 'yes', 'on'):
+                            params[key] = True
+                        elif val_str in ('false', '0', 'no', 'off'):
+                            params[key] = False
+                        else:
+                            # If unrecognized, use default
+                            params[key] = default_value
+                    else:
+                        params[key] = all_params[key]
+                except (ValueError, TypeError) as e:
+                    amr.Print(f"Warning: Could not convert parameter {key}='{all_params[key]}' to {type(default_value).__name__}, using default: {default_value}")
+                    params[key] = default_value
+            else:
+                params[key] = default_value
+        
+        # Optional: print the parameters we're actually using
+        amr.Print("Using parameters:")
+        for key, value in params.items():
+            amr.Print(f"  {key}: {value}")
+        
+        return params
+        
+    except Exception as e:
+        amr.Print(f"Warning: Could not parse parameters with to_dict(): {e}")
+        amr.Print("Using default values")
+        return defaults
 
 if __name__ == '__main__':
     # Initialize AMReX
