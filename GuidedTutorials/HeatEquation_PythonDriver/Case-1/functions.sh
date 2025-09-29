@@ -1,6 +1,85 @@
 #!/bin/bash
 # functions.sh - AMReX plotfile processing functions
 
+# Function to extract data from datalog.txt
+function extract_data_from_datalog {
+    local run_dir=$1
+    local run_counter=$2
+
+    local datalog_file="$run_dir/datalog.txt"
+
+    echo "Processing datalog in $run_dir" >&2
+
+    if [ ! -f "$datalog_file" ]; then
+        echo "Error: datalog.txt not found in $run_dir" >&2
+        return 1
+    fi
+
+    # Generate outnames from header on first run
+    if [ $run_counter -eq 0 ] && [ ! -f "outnames.txt" ]; then
+        echo "Generating outnames from datalog header..." >&2
+        generate_outnames_from_datalog_header "$datalog_file"
+    fi
+
+    echo "Datalog file contents:" >&2
+    cat "$datalog_file" >&2
+
+    # Get the last line of data (skip comment lines)
+    local last_line=$(grep -v '^#' "$datalog_file" | tail -1)
+
+    if [ -z "$last_line" ]; then
+        echo "Error: No data lines found in datalog.txt" >&2
+        return 1
+    fi
+
+    echo "Last data line: $last_line" >&2
+
+    # Return all the values from the last line
+    echo "$last_line"
+    return 0
+}
+
+# Function to generate outnames from datalog header
+function generate_outnames_from_datalog_header {
+    local datalog_file=$1
+
+    if [ ! -f "$datalog_file" ]; then
+        echo "Error: datalog file $datalog_file not found" >&2
+        return 1
+    fi
+
+    echo "Generating outnames from datalog header: $datalog_file" >&2
+
+    # Get the header line (starts with #)
+    local header_line=$(grep '^#' "$datalog_file" | head -1)
+
+    if [ -z "$header_line" ]; then
+        echo "Error: No header line found in datalog" >&2
+        return 1
+    fi
+
+    echo "Found header: $header_line" >&2
+
+    # Remove the # and split into column names
+    local columns=$(echo "$header_line" | sed 's/^#//' | tr -s ' ' | sed 's/^ *//' | sed 's/ *$//')
+
+    echo "Parsed columns: $columns" >&2
+
+    # Convert to array and write to outnames.txt
+    local column_array=($columns)
+
+    > outnames.txt
+    for col in "${column_array[@]}"; do
+        echo "$col" >> outnames.txt
+        echo "Added column: $col" >&2
+    done
+
+    echo "Generated outnames.txt:" >&2
+    cat outnames.txt >&2
+
+    return 0
+}
+
 # Function to generate output names using variable names from Header and components from Cell_H
 function generate_outnames_from_combined_sources {
     local plotfile_path=$1
@@ -314,23 +393,23 @@ function get_last_plotfile {
 function run_single_simulation {
     local run_counter=$1
     local param_values=("${@:2}")
-    
+
     # Debug parameter passing
     echo "DEBUG: run_counter=$run_counter" >&2
     echo "DEBUG: param_values=(${param_values[@]})" >&2
     echo "DEBUG: PARAM_NAMES=(${PARAM_NAMES[@]})" >&2
     echo "DEBUG: Length of PARAM_NAMES: ${#PARAM_NAMES[@]}" >&2
     echo "DEBUG: Length of param_values: ${#param_values[@]}" >&2
-    
+
     # Create subdirectory for this run
     local run_dir="run_$(printf "%04d" $run_counter)"
     echo "Creating directory: $run_dir" >&2
     mkdir -p "$run_dir"
-    
+
     # Change to run directory
     cd "$run_dir"
     echo "Changed to directory: $(pwd)" >&2
-    
+
     # Build command line arguments
     local cmd_args=""
     if [ ${#PARAM_NAMES[@]} -gt 0 ]; then
@@ -347,7 +426,7 @@ function run_single_simulation {
     else
         echo "DEBUG: PARAM_NAMES array is empty!" >&2
     fi
-    
+
     echo "DEBUG: Final cmd_args='$cmd_args'" >&2
 
     # Build the full command
@@ -377,6 +456,32 @@ function run_single_simulation {
         echo "Simulation log:" >&2
         cat simulation.log >&2
         cd ..
+        return 1
+    fi
+}
+
+# Updated process function that uses datalog header automatically
+function process_single_simulation_datalog {
+    local run_dir=$1
+    local run_counter=$2
+
+    echo "Processing simulation $run_counter using datalog approach" >&2
+
+    if [ ! -d "$run_dir" ]; then
+        echo "Error: Run directory $run_dir not found" >&2
+        return 1
+    fi
+
+    # Extract all data from datalog (header parsing handled inside)
+    local result=$(extract_data_from_datalog "$run_dir" $run_counter)
+    local extract_success=$?
+
+    if [ $extract_success -eq 0 ]; then
+        echo "Extracted result: '$result'" >&2
+        echo "$result"
+        return 0
+    else
+        echo "Error: Failed to extract data from datalog in $run_dir" >&2
         return 1
     fi
 }

@@ -121,7 +121,9 @@ function process_all_simulations {
         
         if [ $sim_success -eq 0 ] && [ -d "$run_dir" ]; then
             echo "Step 2: Processing plotfile..."
-            local result=$(process_single_plotfile "$run_dir" $run_counter)
+            # NEW - using datalog  
+            local result=$(process_single_simulation_datalog "$run_dir" $run_counter)
+            #local result=$(process_single_plotfile "$run_dir" $run_counter)
             local process_success=$?
             
             echo "Process result: exit_code=$process_success, result='$result'"

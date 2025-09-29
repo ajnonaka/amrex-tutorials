@@ -48,6 +48,15 @@ int main (int argc, char* argv[])
     amrex::Real init_width;
 
     // **********************************
+    // DECLARE DATALOG PARAMETERS
+    // **********************************
+    const int datwidth = 14;
+    const int datprecision = 6;
+    const int timeprecision = 13;
+    int datalog_int = -1;      // Interval for regular output (<=0 means no regular output)
+    bool datalog_final = true; // Write datalog at final step
+
+    // **********************************
     // READ PARAMETER VALUES FROM INPUT DATA
     // **********************************
     // inputs parameters
@@ -73,6 +82,11 @@ int main (int argc, char* argv[])
         plot_int = -1;
         pp.query("plot_int",plot_int);
 
+        // Default datalog_int to -1, allow us to set it to something else in the inputs file
+        //  If datalog_int < 0 then no plot files will be written
+        datalog_int = -1;
+        pp.query("datalog_int",datalog_int);
+
         // time step
         pp.get("dt",dt);
 
@@ -82,16 +96,16 @@ int main (int argc, char* argv[])
 
         // Diffusion coefficient - controls how fast heat spreads
         diffusion_coeff = 1.0;
-        pp.query("diffusion", diffusion_coeff);  // Note: input name is "diffusion" but variable is "diffusion_coeff"
+        pp.query("diffusion_coeff", diffusion_coeff);  // Note: input name is "diffusion" but variable is "diffusion_coeff"
 
         // Initial temperature amplitude
         init_amplitude = 1.0;
-        pp.query("amplitude", init_amplitude);
+        pp.query("init_amplitude", init_amplitude);
 
         // Width parameter - this is the variance (width²), not standard deviation
         // Smaller values = more concentrated, larger values = more spread out
         init_width = 0.01;  // Note: 0.01 to match your original rsquared/0.01
-        pp.query("width", init_width);
+        pp.query("init_width", init_width);
     }
 
     // **********************************
@@ -187,6 +201,19 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
     }
 
     // **********************************
+    // WRITE DATALOG FILE
+    // **********************************
+    if (amrex::ParallelDescriptor::IOProcessor() && (datalog_int>0 || datalog_final)) {
+        std::ofstream datalog("datalog.txt");  // truncate mode to start fresh
+        datalog << "#" << std::setw(datwidth-1) << "         time";
+        datalog << std::setw(datwidth) << "   max_temp";
+        datalog << std::setw(datwidth) << "   std_temp";
+        datalog << std::setw(datwidth) << "  final_step";
+        datalog << std::endl;
+        datalog.close();
+    }
+
+    // **********************************
     // WRITE INITIAL PLOT FILE
     // **********************************
 
@@ -244,6 +271,35 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         // Tell the I/O Processor to write out which step we're doing
         amrex::Print() << "Advanced step " << step << "\n";
 
+        // **********************************
+        // WRITE DATALOG AT GIVEN INTERVAL
+        // **********************************
+
+        // Check if we should write datalog
+        bool write_datalog = false;
+        if (datalog_final && step == nsteps) {
+            write_datalog = true;  // Write final step
+        } else if (datalog_int > 0 && step % datalog_int == 0) {
+            write_datalog = true;  // Write every datalog_int steps
+        }
+
+        if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
+            std::ofstream datalog("datalog.txt", std::ios::app);
+
+            // Calculate temperature statistics
+            amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
+            amrex::Real max_temperature = phi_new.max(0);
+            amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
+            amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
+
+            datalog << std::setw(datwidth) << std::setprecision(timeprecision) << time;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << max_temperature;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << std_temperature;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << step;
+            datalog << std::endl;
+
+            datalog.close();
+        }
 
         // **********************************
         // WRITE PLOTFILE AT GIVEN INTERVAL
