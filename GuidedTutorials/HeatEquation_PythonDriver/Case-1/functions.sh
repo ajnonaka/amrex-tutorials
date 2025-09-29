@@ -10,7 +10,7 @@ function generate_outnames_from_combined_sources {
     local main_header="$plotfile_path/Header"
     
     if [ ! -f "$level_header" ] || [ ! -f "$main_header" ]; then
-        echo "Error: Required header files not found"
+        echo "Error: Required header files not found" >&2
         return 1
     fi
     
@@ -50,10 +50,12 @@ function generate_outnames_from_combined_sources {
             echo "DEBUG: Added ${var_name}_${comp}_min and ${var_name}_${comp}_max" >&2
         done
         
-        echo "Added variable '$var_name' with $num_components actual components"
+        # ALL OUTPUT TO STDERR
+        echo "Added variable '$var_name' with $num_components actual components" >&2
     done
     
-    echo "Generated outnames.txt with $num_variables variables and $num_components components each"
+    # ALL OUTPUT TO STDERR  
+    echo "Generated outnames.txt with $num_variables variables and $num_components components each" >&2
     echo "DEBUG: Final outnames.txt contents:" >&2
     cat outnames.txt >&2
 }
@@ -422,15 +424,18 @@ function process_single_plotfile {
     fi
 }
 
-# Function to initialize output file
+# Updated initialize_output_file function
 function initialize_output_file {
     local output_file=$1
     
     echo "Initializing output file: $output_file" >&2
     > "$output_file"
-    if [ -f "outnames.txt" ]; then
+    
+    if [ "$INCLUDE_HEADER" = true ] && [ -f "outnames.txt" ]; then
         readarray -t output_names < outnames.txt
         echo "# ${output_names[@]}" >> "$output_file"
         echo "Added header to $output_file" >&2
+    else
+        echo "Created headerless output file: $output_file" >&2
     fi
 }

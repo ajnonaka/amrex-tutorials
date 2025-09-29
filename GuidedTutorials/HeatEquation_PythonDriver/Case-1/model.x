@@ -33,6 +33,9 @@ EOF
 PC_TYPE=HG # Hermite-Gaussian PC
 INPC_ORDER=1
 
+# Output file header
+INCLUDE_HEADER=true  # Set to false for pure numbers
+
 # Get positional arguments
 INPUT_FILE="$1"
 OUTPUT_FILE="$2"
