@@ -35,6 +35,19 @@ int main (int argc, char* argv[])
     amrex::Real dt;
 
     // **********************************
+    // DECLARE PHYSICS PARAMETERS
+    // **********************************
+
+    // diffusion coefficient for heat equation
+    amrex::Real diffusion_coeff;
+
+    // amplitude of initial temperature profile
+    amrex::Real init_amplitude;
+
+    // width parameter controlling spread of initial profile (variance, not std dev)
+    amrex::Real init_width;
+
+    // **********************************
     // READ PARAMETER VALUES FROM INPUT DATA
     // **********************************
     // inputs parameters
@@ -62,6 +75,23 @@ int main (int argc, char* argv[])
 
         // time step
         pp.get("dt",dt);
+
+        // **********************************
+        // READ PHYSICS PARAMETERS
+        // **********************************
+
+        // Diffusion coefficient - controls how fast heat spreads
+        diffusion_coeff = 1.0;
+        pp.query("diffusion", diffusion_coeff);  // Note: input name is "diffusion" but variable is "diffusion_coeff"
+
+        // Initial temperature amplitude
+        init_amplitude = 1.0;
+        pp.query("amplitude", init_amplitude);
+
+        // Width parameter - this is the variance (width²), not standard deviation
+        // Smaller values = more concentrated, larger values = more spread out
+        init_width = 0.01;  // Note: 0.01 to match your original rsquared/0.01
+        pp.query("width", init_width);
     }
 
     // **********************************
@@ -128,19 +158,31 @@ int main (int argc, char* argv[])
 
         const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
 
-        // set phi = 1 + e^(-(r-0.5)^2)
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        // **********************************
+        // SET INITIAL TEMPERATURE PROFILE
+        // **********************************
+        // Formula: T = 1 + amplitude * exp(-r^2 / width^2)
+        // where r is distance from center (0.5, 0.5, 0.5)
+        //
+        // Parameters:
+        // - amplitude: controls peak temperature above baseline (1.0)
+        // - width: controls spread of initial hot spot
+        //   - smaller width = more concentrated
+        //   - larger width = more spread out
+
+amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-
-            // **********************************
-            // SET VALUES FOR EACH CELL
-            // **********************************
-
+            // Calculate physical coordinates of cell center
             amrex::Real x = (i+0.5) * dx[0];
             amrex::Real y = (j+0.5) * dx[1];
             amrex::Real z = (k+0.5) * dx[2];
-            amrex::Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/0.01;
-            phiOld(i,j,k) = 1. + std::exp(-rsquared);
+
+            // Calculate squared distance from domain center (0.5, 0.5, 0.5)
+            // Divide by init_width (which is the variance, not standard deviation)
+            amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
+
+            // Set initial temperature profile
+            phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
         });
     }
 
@@ -175,19 +217,17 @@ int main (int argc, char* argv[])
             const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
             const amrex::Array4<amrex::Real>& phiNew = phi_new.array(mfi);
 
-            // advance the data by dt
+            // advance the data by dt using heat equation with diffusion coefficient
             amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
+                // Calculate the discrete Laplacian using finite differences
+                amrex::Real laplacian =
+                    (phiOld(i+1,j,k) - 2.*phiOld(i,j,k) + phiOld(i-1,j,k)) / (dx[0]*dx[0])
+                   +(phiOld(i,j+1,k) - 2.*phiOld(i,j,k) + phiOld(i,j-1,k)) / (dx[1]*dx[1])
+                   +(phiOld(i,j,k+1) - 2.*phiOld(i,j,k) + phiOld(i,j,k-1)) / (dx[2]*dx[2]);
 
-                // **********************************
-                // EVOLVE VALUES FOR EACH CELL
-                // **********************************
-
-                phiNew(i,j,k) = phiOld(i,j,k) + dt *
-                    ( (phiOld(i+1,j,k) - 2.*phiOld(i,j,k) + phiOld(i-1,j,k)) / (dx[0]*dx[0])
-                     +(phiOld(i,j+1,k) - 2.*phiOld(i,j,k) + phiOld(i,j-1,k)) / (dx[1]*dx[1])
-                     +(phiOld(i,j,k+1) - 2.*phiOld(i,j,k) + phiOld(i,j,k-1)) / (dx[2]*dx[2])
-                        );
+                // Apply heat equation using diffusion_coeff - matches Python version
+                phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
             });
         }
 
