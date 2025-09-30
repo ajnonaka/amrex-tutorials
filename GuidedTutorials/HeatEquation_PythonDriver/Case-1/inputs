@@ -7,7 +7,7 @@ nsteps = 100                # total steps in simulation
 dt = 1.e-5                  # time step
 
 # Output control
-plot_int = -1               # how often to write plotfile (-1 = no plots)
+plot_int = 100               # how often to write plotfile (-1 = no plots)
 datalog_int = -1             # how often to write datalog (-1 = no regular output)
    
 # Physics parameters (these are what we vary for UQ)
