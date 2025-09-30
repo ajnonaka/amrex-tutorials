@@ -185,16 +185,16 @@ PyTUQ provides several workflow examples demonstrating the model interface:
      - Example File
      - Model Interface Pattern
    * - Global Sensitivity
-     - `ex_pcgsa.py <https://github.com/pytuq/examples/ex_pcgsa.py>`_
+     - `ex_pcgsa.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_pcgsa.py>`_
      - ``y = model(x)`` with polynomial chaos
    * - Inverse Modeling
-     - `ex_mcmc_fitmodel.py <https://github.com/pytuq/examples/ex_mcmc_fitmodel.py>`_
+     - `ex_mcmc_fitmodel.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_mcmc_fitmodel.py>`_
      - ``y_pred = model(params)`` for likelihood evaluation
    * - Gaussian Process
-     - `ex_gp.py <https://github.com/pytuq/examples/ex_gp.py>`_
+     - `ex_gp.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_gp.py>`_
      - Surrogate: ``y_approx = gp.predict(x)``
    * - Linear Regression
-     - `ex_lreg_merr.py <https://github.com/pytuq/examples/ex_lreg_merr.py>`_
+     - `ex_lreg_merr.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_lreg_merr.py>`_
      - ``y = X @ beta + error``
 
 Input/Output Specifications
