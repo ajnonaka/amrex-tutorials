@@ -390,11 +390,24 @@ Case 1a: C++ with Datalog Output
                amr.DataLog(0) << time << " " << max_temperature << " " << mean_temp << std::endl;
            }
 
-3. Create Python wrapper to interface with PyTUQ:
+3. Configure bash wrapper (``model_wrapper.x``):
 
-   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/model.py``
+   .. code-block:: bash
+      :caption: Configuration section of model_wrapper.x
+      
+      # Configuration
+      EXE="main3d.gnu.ex"
+      INPUTS="inputs"
+      INCLUDE_HEADER=true
+      POSTPROCESSOR="./postprocess_datalog.sh"
 
-   [Need snippet from you here]
+   The ``model_wrapper.x`` script (based on PyTUQ workflow examples) handles:
+   
+   - Reading input parameters from file
+   - Setting up AMReX inputs command line options with parameters
+   - Running the executable
+   - Calling postprocessor to extract outputs
+   - Writing outputs to file
 
 Case 1b: C++ with Plotfile/Bash Extraction  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -408,17 +421,77 @@ Case 1b: C++ with Plotfile/Bash Extraction
 
 1. Use parametrized C++ code with ``plot_int > 0``
 
-2. Create bash extraction script:
+3. Configure bash wrapper (``model.x``):
 
-   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/postprocess.sh``
+   For plotfile header extraction (current implementation):
 
-   [Need snippet from you here]
+   .. code-block:: bash
+      :caption: Configuration section of model.x for plotfile extraction
 
-3. Create Python wrapper:
+      # Source external functions library
+      SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      source "$SCRIPT_DIR/functions.sh"
 
-   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/model_bash.py``
+      # Configuration
+      EXE="main3d.gnu.ex"              # AMReX executable
+      INPUTS="inputs"                  # AMReX inputs file
+      LEVEL=0                          # AMReX refinement level to extract from
+      TARGET_I=16                      # Target i coordinate (for 32^3 grid center)
+      TARGET_J=16                      # Target j coordinate  
+      TARGET_K=16                      # Target k coordinate
+      INCLUDE_HEADER=true              # Include column headers in output
 
-   [Need snippet from you here]
+   The ``model.x`` script with ``functions.sh`` implements plotfile extraction:
+
+   **Workflow:**
+
+   1. **Run simulation**: Creates run directories and executes AMReX code
+   
+   2. **Locate plotfile**: Finds the last generated plotfile (``plt*``) directory
+   
+   3. **Parse plotfile structure**:
+      
+      - Reads ``Header`` file for variable names and component counts
+      - Reads ``Level_X/Cell_H`` for box definitions and min/max data
+      - Identifies which box contains target (i,j,k) coordinates
+   
+   4. **Extract min/max values**:
+      
+      - For each variable component, extracts minimum and maximum values
+      - Values are taken from the box containing the target coordinates
+      - Creates output columns named ``<variable>_<component>_min/max``
+
+   **Key functions in functions.sh:**
+
+   - ``process_single_plotfile()``: Main orchestrator for plotfile extraction
+   - ``get_last_plotfile()``: Finds most recent plotfile in run directory
+   - ``generate_outnames_from_combined_sources()``: Creates column names from Header/Cell_H
+   - ``find_box_index()``: Determines which AMReX box contains target coordinates
+   - ``extract_minmax_from_cell_header()``: Extracts actual min/max values
+
+   **Example plotfile structure:**
+
+   .. code-block:: text
+
+      plt00010/
+      ├── Header                    # Variable names, components, metadata
+      └── Level_0/
+          ├── Cell_H               # Box definitions and min/max data
+          └── Cell_D_00000         # Actual cell data (not used here)
+
+   **Output format:**
+
+   The extraction produces one line per simulation with min/max values for each
+   variable component at the target location:
+
+   .. code-block:: text
+
+      # phi_0_min phi_0_max phi_1_min phi_1_max ...
+      1.234e-05 2.345e-04 3.456e-05 4.567e-04 ...
+
+   This approach extracts summary statistics without reading the full cell data,
+   making it efficient for uncertainty quantification workflows where only
+   specific metrics are needed.
 
 Case 2: PyAMReX Direct Integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -436,48 +509,12 @@ Case 2: PyAMReX Direct Integration
    import numpy as np
    import pyamrex.amrex as amrex
    from BaseModel import BaseModel
-   
-   class HeatEquationModel(BaseModel):
-       """PyAMReX model with PyTUQ interface"""
-       
-       def __init__(self, geom, default_params):
-           super().__init__(geom)
-           self.default_params = default_params
-           
-       def __call__(self, inputs):
-           """
-           Direct PyTUQ interface - no wrapper needed
-           
-           Args:
-               inputs: np.ndarray [n_samples, n_params]
-           
-           Returns:
-               outputs: np.ndarray [n_samples, n_outputs]
-           """
-           n_samples = inputs.shape[0]
-           outputs = np.zeros((n_samples, 2))
-           
-           for i, params in enumerate(inputs):
-               # Set parameters
-               self.thermal_conductivity = params[0]
-               self.heat_source = params[1]
-               self.initial_temp = params[2]
-               
-               # Initialize and run
-               self.initialize()
-               self.advance(n_steps=100)
-               
-               # Extract outputs directly
-               outputs[i, 0] = self.get_max_temperature()
-               outputs[i, 1] = self.get_avg_temperature()
-               
-               # Reset for next run
-               self.reset()
-           
-           return outputs
+
+   #Define inherited class with __call__ and outnames and pnames methods
+   class HeatEquationModel(BaseModel)
    
    # Direct usage with PyTUQ
-   model = HeatEquationModel(geom, default_params)
+   model = HeatEquationModel()
    # model now provides the required interface
 
 Case 3: C++ with Pybind11 Bindings
@@ -488,63 +525,15 @@ Case 3: C++ with Pybind11 Bindings
 
    When you want compiled performance with Python interface.
 
-**Binding Implementation:**
-
-.. code-block:: cpp
-   :caption: bindings.cpp
-
-   #include <pybind11/pybind11.h>
-   #include <pybind11/numpy.h>
-   #include "HeatEquation.H"
-   
-   namespace py = pybind11;
-   
-   py::array_t<double> heat_equation_model(py::array_t<double> inputs) {
-       // Get input dimensions
-       auto buf = inputs.request();
-       double* in_ptr = static_cast<double*>(buf.ptr);
-       size_t n_samples = buf.shape[0];
-       size_t n_params = buf.shape[1];
-       
-       // Prepare output array
-       py::array_t<double> outputs({n_samples, 2});
-       auto out_buf = outputs.request();
-       double* out_ptr = static_cast<double*>(out_buf.ptr);
-       
-       // Run simulations
-       for (size_t i = 0; i < n_samples; ++i) {
-           double thermal_cond = in_ptr[i * n_params + 0];
-           double heat_source = in_ptr[i * n_params + 1];
-           double init_temp = in_ptr[i * n_params + 2];
-           
-           HeatEquation sim(thermal_cond, heat_source, init_temp);
-           sim.run();
-           
-           out_ptr[i * 2 + 0] = sim.get_max_temperature();
-           out_ptr[i * 2 + 1] = sim.get_avg_temperature();
-       }
-       
-       return outputs;
-   }
-   
-   PYBIND11_MODULE(amrex_uq, m) {
-       m.def("model", &heat_equation_model, 
-             "Heat equation model with PyTUQ interface");
-   }
-
-**Python usage:**
-
-.. code-block:: python
-
-   import amrex_uq
-   
-   # Direct PyTUQ interface from C++
-   model = amrex_uq.model
-   outputs = model(inputs)  # Standard interface
-
 Case 4: PICMI/WarpX Integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. admonition:: When to use
+   :class: tip
+
+   When you want full functionality with a Python main.
+
+   [This example is a simplifiction and should be replaced with a link to picmi inputs]
 .. code-block:: python
    :caption: warpx_model.py
 
@@ -582,88 +571,12 @@ Case 4: PICMI/WarpX Integration
    # Ready for PyTUQ
    model = warpx_model
 
-Validation and Testing
-----------------------
-
-Validate your model interface:
-
-.. code-block:: python
-   :caption: test_model_interface.py
-
-   import numpy as np
-   from model import heat_equation_model  # Your model
-   
-   # Test with random inputs
-   n_samples = 10
-   n_params = 3
-   test_inputs = np.random.rand(n_samples, n_params)
-   
-   # Rescale to parameter ranges
-   param_ranges = np.array([[0.5, 1.5], [1.0, 10.0], [273, 373]])
-   for i in range(n_params):
-       test_inputs[:, i] = (param_ranges[i, 1] - param_ranges[i, 0]) * \
-                           test_inputs[:, i] + param_ranges[i, 0]
-   
-   # Test model interface
-   outputs = heat_equation_model(test_inputs)
-   
-   # Validate output shape
-   assert outputs.shape[0] == n_samples, "Wrong number of samples"
-   assert outputs.ndim == 2, "Outputs should be 2D array"
-   
-   # Check outputs are reasonable
-   assert np.all(np.isfinite(outputs)), "Outputs contain NaN or Inf"
-   assert np.all(outputs > 0), "Temperature should be positive"
-   
-   print(f"✓ Model interface validated")
-   print(f"  Input shape: {test_inputs.shape}")
-   print(f"  Output shape: {outputs.shape}")
-   print(f"  Output range: [{outputs.min():.2f}, {outputs.max():.2f}]")
 
 Running Complete UQ Workflows
 ------------------------------
 
 Example workflow combining model with PyTUQ analysis:
-
-.. code-block:: python
-   :caption: complete_uq_workflow.py
-
-   import numpy as np
-   import pytuq
-   from model import heat_equation_model
-   
-   # 1. Define parameter distributions
-   param_dists = [
-       pytuq.UniformDist(0.5, 1.5),    # thermal_conductivity
-       pytuq.UniformDist(1.0, 10.0),   # heat_source
-       pytuq.UniformDist(273, 373)     # initial_temperature
-   ]
-   
-   # 2. Global Sensitivity Analysis (like ex_pcgsa.py)
-   pce = pytuq.PCE(model=heat_equation_model,
-                   distributions=param_dists,
-                   order=3)
-   pce.fit(n_samples=100)
-   sobol_indices = pce.get_sobol_indices()
-   
-   # 3. Inverse Modeling (like ex_mcmc_fitmodel.py)
-   observed_data = np.array([350.0, 325.0])  # Observed [max_temp, avg_temp]
-   
-   def likelihood(params):
-       pred = heat_equation_model(params.reshape(1, -1))[0]
-       return -0.5 * np.sum((pred - observed_data)**2 / sigma**2)
-   
-   mcmc = pytuq.MCMC(likelihood, param_dists)
-   samples = mcmc.sample(n_samples=1000)
-   
-   # 4. Surrogate Modeling (like ex_gp.py)
-   gp = pytuq.GaussianProcess(model=heat_equation_model,
-                              param_ranges=param_ranges)
-   gp.fit(n_samples=50)
-   
-   # Fast predictions with surrogate
-   test_points = np.random.rand(1000, 3)
-   fast_predictions = gp.predict(test_points)
+[add example from pytuq examples]
 
 Troubleshooting
 ---------------
@@ -700,6 +613,6 @@ Additional Resources
 
    For complete working examples of the ``outputs = model(inputs)`` pattern, see:
    
-   - ``amrex-tutorials/GuidedTutorials/UQ/Case1a/`` - Datalog wrapper
-   - ``amrex-tutorials/GuidedTutorials/UQ/Case2/`` - PyAMReX native
-   - ``amrex-tutorials/GuidedTutorials/UQ/Case3/`` - Pybind11 wrapper
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_PythonDriver/Case-1/`` - C++ wrappers
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_PythonDriver/Case-2/`` - PyAMReX native
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_PythonDriver/Case-3/`` - Pybind11 wrapper
