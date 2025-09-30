@@ -409,6 +409,22 @@ Case 1a: C++ with Datalog Output
    - Calling postprocessor to extract outputs
    - Writing outputs to file
 
+4. Set up files like pnames.txt
+   diffusion_coeff
+   init_amplitude
+   init_width
+
+5. Use the pytuq infrastructure for setting up the inputs, e.g.
+   .. code-block:: bash
+      :caption: Configuration for input PC coefficients
+      
+      ## (a) Given mean and standard deviation of each normal random parameter
+      echo "1 0.1 " > param_margpc.txt
+      echo "1 0.1" >> param_margpc.txt
+      echo ".01 0.0025" >> param_margpc.txt
+      PC_TYPE=HG # Hermite-Gaussian PC
+      INPC_ORDER=1
+
 Case 1b: C++ with Plotfile/Bash Extraction  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -421,7 +437,23 @@ Case 1b: C++ with Plotfile/Bash Extraction
 
 1. Use parametrized C++ code with ``plot_int > 0``
 
-3. Configure bash wrapper (``model.x``):
+2. Set up files like pnames.txt
+   diffusion_coeff
+   init_amplitude
+   init_width
+
+3. Use the pytuq infrastructure for setting up the inputs, e.g.
+   .. code-block:: bash
+      :caption: Configuration for input PC coefficients
+      
+      ## (a) Given mean and standard deviation of each normal random parameter
+      echo "1 0.1 " > param_margpc.txt
+      echo "1 0.1" >> param_margpc.txt
+      echo ".01 0.0025" >> param_margpc.txt
+      PC_TYPE=HG # Hermite-Gaussian PC
+      INPC_ORDER=1
+
+4. Configure bash wrapper (``model.x``):
 
    For plotfile header extraction (current implementation):
 
