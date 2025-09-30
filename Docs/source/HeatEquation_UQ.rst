@@ -282,160 +282,86 @@ Case 1: C++ Application Wrappers
 
 All three approaches create a Python wrapper providing the ``model(inputs)`` interface.
 
-**Case 1a: Datalog Wrapper Approach**
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Common C++ Modifications for HeatEquation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. admonition:: When to use
-   :class: tip
+All C++ HeatEquation cases (1a, 1b, 1c) share the same parameter modifications:
 
-   Choose when you have centralized output locations and want efficient I/O.
+**Physics Parametrization:**
 
-**Implementation Steps:**
-
-1. Add datalog output to C++ code:
-
-   .. code-block:: cpp
-      :caption: main.cpp modifications
-
-      #include <AMReX_DataLog.H>
-      
-      // After computation
-      if (amrex::ParallelDescriptor::IOProcessor()) {
-          amrex::DataLog& datalog = amrex::DataLog::GetDataLog("uq_outputs.dat");
-          datalog << max_temperature << " " << avg_temperature << std::endl;
-      }
-
-2. Create Python model wrapper:
-
-   .. code-block:: python
-      :caption: model.py - PyTUQ interface wrapper
-
-      import numpy as np
-      import subprocess
-      import os
-      
-      def heat_equation_model(inputs):
-          """
-          PyTUQ-compatible model wrapper for AMReX HeatEquation
-          
-          Args:
-              inputs: np.ndarray [n_samples, n_params]
-                     params = [thermal_conductivity, heat_source, initial_temp]
-          
-          Returns:
-              outputs: np.ndarray [n_samples, 2]
-                      outputs = [max_temp, avg_temp]
-          """
-          n_samples = inputs.shape[0]
-          outputs = np.zeros((n_samples, 2))
-          
-          for i, params in enumerate(inputs):
-              # Write input file
-              with open(f'inputs_{i}', 'w') as f:
-                  f.write(f"thermal_conductivity = {params[0]}\n")
-                  f.write(f"heat_source = {params[1]}\n")
-                  f.write(f"initial_temperature = {params[2]}\n")
-              
-              # Run simulation
-              subprocess.run(['./main3d.ex', f'inputs_{i}'])
-              
-              # Extract outputs from datalog
-              data = np.loadtxt('uq_outputs.dat')
-              outputs[i] = data[-1, :]  # Last timestep
-              
-              # Cleanup
-              os.remove(f'inputs_{i}')
-              os.remove('uq_outputs.dat')
-          
-          return outputs
-      
-      # Usage with PyTUQ
-      model = heat_equation_model
-      # Now can use with any PyTUQ workflow
-
-3. Integrate with PyTUQ workflows:
-
-   .. code-block:: python
-      :caption: run_uq_analysis.py
-
-      import pytuq
-      from model import heat_equation_model
-      
-      # Define parameter ranges
-      param_ranges = np.array([
-          [0.5, 1.5],   # thermal_conductivity
-          [1.0, 10.0],  # heat_source
-          [273, 373]    # initial_temperature
-      ])
-      
-      # Run sensitivity analysis (like ex_pcgsa.py)
-      sa = pytuq.GlobalSensitivity(model=heat_equation_model,
-                                   param_ranges=param_ranges)
-      results = sa.analyze()
-
-**Case 1b: Plotfile Processing Wrapper**
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. admonition:: When to use
-   :class: tip
-
-   Best for minimal C++ code changes when plotfiles already exist.
-
-**Implementation:**
-
-.. code-block:: python
-   :caption: model.py - Plotfile wrapper
-
-   def heat_equation_model(inputs):
-       """Wrapper using plotfile extraction"""
-       outputs = np.zeros((inputs.shape[0], 2))
-       
-       for i, params in enumerate(inputs):
-           # Write inputs and run
-           write_inputs_file(params, f'inputs_{i}')
-           subprocess.run(['./main3d.gnu.ex', f'inputs_{i}'])
-           
-           # Extract from plotfile using bash script
-           subprocess.run(['./extract_data.sh', 'plt00100', f'output_{i}.txt'])
-           outputs[i] = np.loadtxt(f'output_{i}.txt')
-           
-           # Cleanup
-           cleanup_files(i)
-       
-       return outputs
-
-.. code-block:: bash
-   :caption: extract_data.sh
-
-   #!/bin/bash
-   # Extract max and average from plotfile
-   PLOTFILE=$1
-   OUTPUT=$2
+.. code-block:: cpp
+   :caption: Add physics parameters (in main.cpp declarations)
    
-   fextract.gnu.ex -s slice.dat $PLOTFILE > temp.dat
-   grep "max temp" temp.dat | awk '{print $3}' > $OUTPUT
-   grep "avg temp" temp.dat | awk '{print $3}' >> $OUTPUT
+   // diffusion coefficient for heat equation
+   amrex::Real diffusion_coeff;
+   
+   // amplitude of initial temperature profile
+   amrex::Real init_amplitude;
+   
+   // width parameter controlling spread of initial profile (variance, not std dev)
+   amrex::Real init_width;
 
-**Case 1c: Fextract Integration Wrapper**
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: cpp
+   :caption: Read parameters from inputs file (in ParmParse section)
+   
+   diffusion_coeff = 1.0;
+   pp.query("diffusion_coeff", diffusion_coeff);
+   
+   init_amplitude = 1.0;
+   pp.query("init_amplitude", init_amplitude);
+   
+   init_width = 0.01;
+   pp.query("init_width", init_width);
 
-.. code-block:: python
-   :caption: model.py - Fextract wrapper
+.. code-block:: cpp
+   :caption: Use parameters in initial conditions
+   
+   amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
+   phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
 
-   def heat_equation_model(inputs):
-       """Wrapper using fextract utilities"""
-       outputs = np.zeros((inputs.shape[0], len(output_vars)))
+.. code-block:: cpp
+   :caption: Use diffusion coefficient in evolution
+   
+   phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
+
+The cases differ only in how they extract outputs:
+
+Case 1a: C++ with Datalog Output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Additional Modifications for Datalog:**
+
+.. code-block:: cpp
+   :caption: Add datalog configuration
+   
+   const int datwidth = 14;
+   const int datprecision = 6;
+   int datalog_int = -1;
+   bool datalog_final = true;
+
+.. code-block:: cpp
+   :caption: Write statistics to datalog.txt
+   
+   if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
+       std::ofstream datalog("datalog.txt", std::ios::app);
        
-       for i, params in enumerate(inputs):
-           # Standard run
-           run_simulation(params, run_id=i)
-           
-           # Use fextract functions
-           max_val = extract_max_value('plt00100', 'temperature')
-           avg_val = extract_average_value('plt00100', 'temperature')
-           outputs[i] = [max_val, avg_val]
+       amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
+       amrex::Real max_temperature = phi_new.max(0);
+       amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
+       amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
        
-       return outputs
+       datalog << time << " " << max_temperature << " " << std_temperature << " " << step << std::endl;
+   }
+
+Case 1b: C++ with Plotfile/Bash Extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Uses the same parametrized C++ code but with ``plot_int > 0`` to generate plotfiles, then extracts data via bash scripts.
+
+Case 1c: C++ with Fextract Tools
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Uses the same parametrized C++ code with plotfiles, but extracts data using AMReX fextract utilities.
 
 Case 2: PyAMReX Direct Integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
