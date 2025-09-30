@@ -9,7 +9,6 @@
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_ParmParse.H>
 
-
 int main (int argc, char* argv[])
 {
     amrex::Initialize(argc,argv);
@@ -312,7 +311,6 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             WriteSingleLevelPlotfile(pltfile, phi_new, {"phi"}, geom, time, step);
         }
     }
-
 
     }
     amrex::Finalize();
