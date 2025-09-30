@@ -285,83 +285,140 @@ All three approaches create a Python wrapper providing the ``model(inputs)`` int
 Common C++ Modifications for HeatEquation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All C++ HeatEquation cases (1a, 1b, 1c) share the same parameter modifications:
+All C++ HeatEquation cases (1a, 1b, 1c) require the same parameter modifications:
 
-**Physics Parametrization:**
+**Implementation Steps:**
 
-.. code-block:: cpp
-   :caption: Add physics parameters (in main.cpp declarations)
-   
-   // diffusion coefficient for heat equation
-   amrex::Real diffusion_coeff;
-   
-   // amplitude of initial temperature profile
-   amrex::Real init_amplitude;
-   
-   // width parameter controlling spread of initial profile (variance, not std dev)
-   amrex::Real init_width;
+1. Add physics parameters to main.cpp declarations:
 
-.. code-block:: cpp
-   :caption: Read parameters from inputs file (in ParmParse section)
+   .. code-block:: cpp
    
-   diffusion_coeff = 1.0;
-   pp.query("diffusion_coeff", diffusion_coeff);
-   
-   init_amplitude = 1.0;
-   pp.query("init_amplitude", init_amplitude);
-   
-   init_width = 0.01;
-   pp.query("init_width", init_width);
+      amrex::Real diffusion_coeff;
+      amrex::Real init_amplitude;  
+      amrex::Real init_width;
 
-.. code-block:: cpp
-   :caption: Use parameters in initial conditions
-   
-   amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
-   phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
+2. Read parameters from inputs file:
 
-.. code-block:: cpp
-   :caption: Use diffusion coefficient in evolution
+   .. code-block:: cpp
    
-   phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
+      diffusion_coeff = 1.0;
+      pp.query("diffusion_coeff", diffusion_coeff);
+      
+      init_amplitude = 1.0;
+      pp.query("init_amplitude", init_amplitude);
+      
+      init_width = 0.01;
+      pp.query("init_width", init_width);
 
-The cases differ only in how they extract outputs:
+3. Use parameters in initial conditions and evolution:
+
+   .. code-block:: cpp
+   
+      // Initial conditions
+      amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
+      phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
+      
+      // Evolution
+      phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
+
+.. note::
+
+   The key to PyTUQ integration is creating a loop that maps input parameters to output quantities.
+   This loop structure differs between cases:
+   
+   - **Case 1**: External Python loop writes inputs files, runs executable, parses outputs
+   - **Case 2**: Python loop directly calls pyAMReX functions  
+   - **Case 3**: Python loop calls pybind11-wrapped C++ functions
+
+The cases differ only in output extraction method:
 
 Case 1a: C++ with Datalog Output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Additional Modifications for Datalog:**
+.. admonition:: When to use
+   :class: tip
 
-.. code-block:: cpp
-   :caption: Add datalog configuration
+   Choose when you have centralized output locations and want efficient I/O.
+
+**Implementation Steps:**
+
+1. Add datalog configuration to C++ code:
+
+   .. code-block:: cpp
    
-   const int datwidth = 14;
-   const int datprecision = 6;
-   int datalog_int = -1;
-   bool datalog_final = true;
+      const int datwidth = 14;
+      const int datprecision = 6;
+      int datalog_int = -1;
+      bool datalog_final = true;
+      pp.query("datalog_int", datalog_int);
 
-.. code-block:: cpp
-   :caption: Write statistics to datalog.txt
+2. Write statistics to datalog.txt:
+
+   .. code-block:: cpp
    
-   if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
-       std::ofstream datalog("datalog.txt", std::ios::app);
-       
-       amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
-       amrex::Real max_temperature = phi_new.max(0);
-       amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
-       amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
-       
-       datalog << time << " " << max_temperature << " " << std_temperature << " " << step << std::endl;
-   }
+      // Check if we should write datalog
+      bool write_datalog = false;
+      if (datalog_final && step == nsteps) {
+          write_datalog = true;  // Write final step
+      } else if (datalog_int > 0 && step % datalog_int == 0) {
+          write_datalog = true;  // Write every datalog_int steps
+      }
+      
+      if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
+          std::ofstream datalog("datalog.txt", std::ios::app);
+          
+          amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
+          amrex::Real max_temperature = phi_new.max(0);
+          amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
+          amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
+          
+          datalog << time << " " << max_temperature << " " << std_temperature << " " << step << std::endl;
+      }
 
-Case 1b: C++ with Plotfile/Bash Extraction
+   .. note::
+   
+      Some AMReX codes already have datalog capabilities:
+      
+      - For existing datalogs, you may only need to ``tail -n 1 datalog`` for the final values
+      - For AMR codes, use the built-in DataLog:
+        
+        .. code-block:: cpp
+        
+           // Assuming 'amr' is your Amr object
+           if (amrex::ParallelDescriptor::IOProcessor()) {
+               amr.DataLog(0) << "# time max_temperature mean_temp" << std::endl;
+               amr.DataLog(0) << time << " " << max_temperature << " " << mean_temp << std::endl;
+           }
+
+3. Create Python wrapper to interface with PyTUQ:
+
+   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/model.py``
+
+   [Need snippet from you here]
+
+Case 1b: C++ with Plotfile/Bash Extraction  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Uses the same parametrized C++ code but with ``plot_int > 0`` to generate plotfiles, then extracts data via bash scripts.
+.. admonition:: When to use
+   :class: tip
 
-Case 1c: C++ with Fextract Tools
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   Choose when working with existing AMReX plotfile infrastructure.
 
-Uses the same parametrized C++ code with plotfiles, but extracts data using AMReX fextract utilities.
+**Implementation Steps:**
+
+1. Use parametrized C++ code with ``plot_int > 0``
+
+2. Create bash extraction script:
+
+   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/postprocess.sh``
+
+   [Need snippet from you here]
+
+3. Create Python wrapper:
+
+   For complete implementation, see: ``amrex-tutorials/ExampleCodes/Basic/HeatEquation_EX1_C/model_bash.py``
+
+   [Need snippet from you here]
 
 Case 2: PyAMReX Direct Integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
