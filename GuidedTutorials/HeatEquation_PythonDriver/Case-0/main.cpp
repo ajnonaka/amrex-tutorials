@@ -204,10 +204,10 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
     // **********************************
     if (amrex::ParallelDescriptor::IOProcessor() && (datalog_int>0 || datalog_final)) {
         std::ofstream datalog("datalog.txt");  // truncate mode to start fresh
-        datalog << "#" << std::setw(datwidth-1) << "         time";
-        datalog << std::setw(datwidth) << "   max_temp";
-        datalog << std::setw(datwidth) << "   std_temp";
-        datalog << std::setw(datwidth) << "  final_step";
+        datalog << "#" << std::setw(datwidth-1) << "     max_temp";
+        datalog << std::setw(datwidth) << "    mean_temp";
+        datalog << std::setw(datwidth) << "     std_temp";
+        datalog << std::setw(datwidth) << " total_energy";
         datalog << std::endl;
         datalog.close();
     }
@@ -290,11 +290,13 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             amrex::Real max_temperature = phi_new.max(0);
             amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
             amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
+            amrex::Real total_energy = phi_new.sum(0);
 
-            datalog << std::setw(datwidth) << std::setprecision(timeprecision) << time;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << max_temperature;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << std_temperature;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision)  << step;
+            // Write 4 statistics
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << max_temperature;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << mean_temp;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << std_temperature;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << total_energy;
             datalog << std::endl;
 
             datalog.close();

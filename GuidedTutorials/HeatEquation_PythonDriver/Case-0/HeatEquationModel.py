@@ -24,7 +24,6 @@ class HeatEquationModel(AMReXBaseModel):
         ('output', 'mean_temperature'),
         ('output', 'std_temperature'),
         ('output', 'total_energy'),
-        ('output', 'center_temperature'),
     ]
 
     # Spatial domain bounds (3D heat equation domain)
@@ -129,10 +128,6 @@ class HeatEquationModel(AMReXBaseModel):
                 'units': 'J',
                 'display_name': 'Total Energy',
             },
-            ('output', 'center_temperature'): {
-                'units': 'K',
-                'display_name': 'Center Temperature',
-            },
         }
 
         return field_info_dict.get(field_tuple, {})
@@ -188,7 +183,7 @@ class HeatEquationModel(AMReXBaseModel):
         Returns:
         --------
         np.ndarray
-            Processed outputs [max, mean, std, integral/sum, center_value]
+            Processed outputs [max, mean, std, integral/sum]
         """
         xp = load_cupy()
         [multifab, varnames, geom] = sim_state
@@ -205,59 +200,11 @@ class HeatEquationModel(AMReXBaseModel):
         variance = (sum_sq / total_cells) - mean_val**2
         std_val = np.sqrt(max(0, variance))
 
-        # Get value at center (if geometry available)
-        center_val = 0.0
-        if geom is not None:
-            dx = geom.data().CellSize()
-            prob_lo = geom.data().ProbLo()
-            prob_hi = geom.data().ProbHi()
-
-            # Calculate center coordinates
-            center_coords = [(prob_lo[i] + prob_hi[i]) / 2.0 for i in range(3)]
-
-            # Find the cell index closest to center
-            center_indices = []
-            for i in range(3):
-                idx = int((center_coords[i] - prob_lo[i]) / dx[i])
-                center_indices.append(idx)
-
-            # Get value at center (default to 0 if can't access)
-            try:
-                for mfi in multifab:
-                    bx = mfi.validbox()
-                    if (center_indices[0] >= bx.small_end[0] and center_indices[0] <= bx.big_end[0] and
-                        center_indices[1] >= bx.small_end[1] and center_indices[1] <= bx.big_end[1] and
-                        center_indices[2] >= bx.small_end[2] and center_indices[2] <= bx.big_end[2]):
-
-                        state_arr = xp.array(multifab.array(mfi), copy=False)
-                        # Convert global to local indices
-                        local_i = center_indices[0] - bx.small_end[0]
-                        local_j = center_indices[1] - bx.small_end[1]
-                        local_k = center_indices[2] - bx.small_end[2]
-                        center_val = float(state_arr[0, local_k, local_j, local_i])
-                        break
-            except (IndexError, AttributeError):
-                # Fall back to (0,0,0) if center calculation fails
-                for mfi in multifab:
-                    state_arr = xp.array(multifab.array(mfi), copy=False)
-                    center_val = float(state_arr[0, 0, 0, 0])
-                    break
-        else:
-            # No geometry available, use (0,0,0,0) cell
-            try:
-                for mfi in multifab:
-                    state_arr = xp.array(multifab.array(mfi), copy=False)
-                    center_val = float(state_arr[0, 0, 0, 0])
-                    break
-            except (IndexError, AttributeError):
-                amr.Print("Warning: Could not access cell (0,0,0,0)")
-
         return np.array([
             float(max_val),
             float(mean_val),
             float(std_val),
-            float(sum_val),
-            float(center_val)
+            float(sum_val)
         ])
 
 if __name__ == "__main__":
