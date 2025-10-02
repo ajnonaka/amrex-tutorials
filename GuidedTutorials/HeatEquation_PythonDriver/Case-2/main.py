@@ -34,14 +34,14 @@ def load_cupy():
         return np
 
 
-def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100, 
-         plot_int: int = 100, dt: float = 1e-5, plot_files_output: bool = False, 
-         verbose: int = 1, diffusion_coeff: float = 1.0, init_amplitude: float = 1.0, 
+def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100,
+         plot_int: int = 100, dt: float = 1e-5, plot_files_output: bool = False,
+         verbose: int = 1, diffusion_coeff: float = 1.0, init_amplitude: float = 1.0,
          init_width: float = 0.01) -> Tuple[amr.MultiFab, amr.Geometry]:
     """
     Run the heat equation simulation.
     The main function, automatically called below if called as a script.
-    
+
     Returns:
     --------
     tuple : (phi_new, geom)
@@ -192,11 +192,11 @@ def parse_inputs() -> Dict[str, Union[int, float, bool]]:
         'init_amplitude': 1.0,
         'init_width': 0.01
     }
-    
+
     try:
         # Convert entire ParmParse table to Python dictionary
         all_params = pp.to_dict()
-        
+
         # Extract our specific parameters with proper type conversion
         params = {}
         for key, default_value in defaults.items():
@@ -224,14 +224,14 @@ def parse_inputs() -> Dict[str, Union[int, float, bool]]:
                     params[key] = default_value
             else:
                 params[key] = default_value
-        
+
         # Optional: print the parameters we're actually using
         amr.Print("Using parameters:")
         for key, value in params.items():
             amr.Print(f"  {key}: {value}")
-        
+
         return params
-        
+
     except Exception as e:
         amr.Print(f"Warning: Could not parse parameters with to_dict(): {e}")
         amr.Print("Using default values")
@@ -244,10 +244,10 @@ if __name__ == '__main__':
     try:
         # Parse inputs
         params = parse_inputs()
-        
+
         # Run simulation
         main(**params)
-        
+
     finally:
         # Finalize AMReX
         amr.finalize()
