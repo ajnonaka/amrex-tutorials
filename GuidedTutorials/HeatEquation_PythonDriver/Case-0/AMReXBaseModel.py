@@ -35,31 +35,42 @@ class AMReXBaseModel(ModelWrapperFcn):
     _output_fields = []
     _spatial_domain_bounds = None
 
-    def __init__(self, **kwargs):
-        """Initialize AMReX if needed."""
-        if not amr.initialized():
-            amr.initialize([])
-
-        # Create modelpar
+    def __init__(self, model=None, **kwargs):
+        # Create modelpar from existing parameter information
         modelpar = self._create_modelpar()
 
-        # Determine dimensions
-        ndim = len(modelpar['param_names']) or 1
-        outdim = len(modelpar['output_names']) or 1
-
-        super().__init__(lambda x: x,
-                        ndim=len(modelpar['param_names']) or 1,
-                        modelpar=modelpar,
-                        **kwargs)
-
-        # Setup field info and names
+        # Setup field info container
         self.field_info = self._create_field_info()
-        self.param_names = modelpar['param_names']
-        self.output_names = modelpar['output_names']
+
+        # Setup convenience lists
+        self.param_names = [f[1] for f in self._param_fields]
+        self.output_names = [f[1] for f in self._output_fields]
+
+        # Extract parameter bounds and create domain array for Function
+        param_domain = self._extract_param_domain()
+
+        # Determine dimensions
+        ndim = len(self.param_names)
+        outdim = len(self.output_names)
+
+        # Create model function wrapper
+        if model is None:
+            model_func = lambda params, mp=None: self._run_simulation(params)
+        else:
+            model_func = model
+
+        # Initialize Function with model
+        super().__init__(
+            model_func,
+            ndim,
+            modelpar=modelpar,
+            name=kwargs.get('name', 'AMReXModel')
+        )
+
+        # Set output dimension (ModelWrapperFcn defaults to 1)
         self.outdim = outdim
 
-        # Extract and set parameter domain
-        param_domain = self._extract_param_domain()
+        # Set the parameter domain using Function's method
         if param_domain is not None and len(param_domain) > 0:
             self.setDimDom(domain=param_domain)
 
@@ -70,6 +81,11 @@ class AMReXBaseModel(ModelWrapperFcn):
             self.domain_dimensions = (self._spatial_domain_bounds[2]
                                      if len(self._spatial_domain_bounds) > 2
                                      else None)
+
+        # Initialize AMReX if needed
+        self.xp = load_cupy()
+        if not amr.initialized():
+            amr.initialize([])
 
     def _create_field_info(self):
         """Create yt-style field info container"""
@@ -127,17 +143,19 @@ class AMReXBaseModel(ModelWrapperFcn):
         return outputs
 
     def __call__(self, x):
-        """Function interface - routes through forward() for consistency"""
-        # Ensure x is at least 2D for checkDim
-        x = np.asarray(x)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-
         self.checkDim(x)
         if hasattr(self, 'domain') and self.domain is not None:
-            self.checkDomain(x)
+            self.checkDomain(x)  # ← Added domain checking
 
-        return self.forward(x)
+        if self.modelpar is None:
+            outputs = self.model(x)
+        else:
+            outputs = self.model(x, self.modelpar)
+
+        if outputs.ndim == 1:
+            outputs = outputs.reshape(-1, self.outdim)  # ← Allows MULTIPLE outputs
+
+        return outputs
 
     def _run_simulation(self, params):
         """

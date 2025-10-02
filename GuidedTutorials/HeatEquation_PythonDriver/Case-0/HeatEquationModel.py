@@ -2,10 +2,10 @@
 import numpy as np
 from typing import Tuple, List, Optional
 import amrex.space3d as amr
-from AMReXModelBase import AMReXModelBase, load_cupy
+from AMReXBaseModel import AMReXBaseModel, load_cupy
 
 
-class HeatEquationModel(AMReXModelBase):
+class HeatEquationModel(AMReXBaseModel):
     """
     Heat equation simulation model with full statistical properties
     and AMReX integration.
@@ -111,7 +111,7 @@ class HeatEquationModel(AMReXModelBase):
                 'units': 'm',
                 'display_name': 'Initial Width',
             },
-            
+
             # Outputs - just units and display names
             ('output', 'max_temperature'): {
                 'units': 'K',
@@ -137,25 +137,25 @@ class HeatEquationModel(AMReXModelBase):
 
         return field_info_dict.get(field_tuple, {})
 
-    def evolve(self, param_set: np.ndarray)
+    def evolve(self, param_set: np.ndarray):
         """
         Run heat equation simulation.
-        
+
         Parameters:
         -----------
         param_set : np.ndarray
             [diffusion_coeff, init_amplitude, init_width]
-        
+
         Returns:
         --------
         tuple : (phi_new, varnames, geom)
             Ready to pass to write_single_level_plotfile
         """
         from main import main  # Import here to avoid circular imports
-        
+
         if len(param_set) != 3:
             raise ValueError(f"Expected 3 parameters, got {len(param_set)}")
-        
+
         phi_new, geom = main(
             diffusion_coeff=float(param_set[0]),
             init_amplitude=float(param_set[1]),
@@ -168,14 +168,14 @@ class HeatEquationModel(AMReXModelBase):
             plot_files_output=False,
             verbose=0
         )
-        
+
         varnames = amr.Vector_string(['phi'])
         return phi_new, varnames, geom
 
     def postprocess(self, sim_state) -> np.ndarray:
         """
         Heat equation specific postprocessing with geometry awareness.
-        
+
         Parameters:
         -----------
         multifab : amr.MultiFab
@@ -184,42 +184,43 @@ class HeatEquationModel(AMReXModelBase):
             Variable names
         geom : amr.Geometry or None
             Domain geometry
-            
+
         Returns:
         --------
         np.ndarray
             Processed outputs [max, mean, std, integral/sum, center_value]
         """
         xp = load_cupy()
-        
+        [multifab, varnames, geom] = sim_state
+
         # Get basic statistics
         max_val = multifab.max(comp=0, local=False)
         sum_val = multifab.sum(comp=0, local=False)
         total_cells = multifab.box_array().numPts
         mean_val = sum_val / total_cells
-        
+
         # Calculate standard deviation
         l2_norm = multifab.norm2(0)
         sum_sq = l2_norm**2
         variance = (sum_sq / total_cells) - mean_val**2
         std_val = np.sqrt(max(0, variance))
-        
+
         # Get value at center (if geometry available)
         center_val = 0.0
         if geom is not None:
             dx = geom.data().CellSize()
             prob_lo = geom.data().ProbLo()
             prob_hi = geom.data().ProbHi()
-            
+
             # Calculate center coordinates
             center_coords = [(prob_lo[i] + prob_hi[i]) / 2.0 for i in range(3)]
-            
+
             # Find the cell index closest to center
             center_indices = []
             for i in range(3):
                 idx = int((center_coords[i] - prob_lo[i]) / dx[i])
                 center_indices.append(idx)
-            
+
             # Get value at center (default to 0 if can't access)
             try:
                 for mfi in multifab:
@@ -227,11 +228,11 @@ class HeatEquationModel(AMReXModelBase):
                     if (center_indices[0] >= bx.small_end[0] and center_indices[0] <= bx.big_end[0] and
                         center_indices[1] >= bx.small_end[1] and center_indices[1] <= bx.big_end[1] and
                         center_indices[2] >= bx.small_end[2] and center_indices[2] <= bx.big_end[2]):
-                        
+
                         state_arr = xp.array(multifab.array(mfi), copy=False)
                         # Convert global to local indices
                         local_i = center_indices[0] - bx.small_end[0]
-                        local_j = center_indices[1] - bx.small_end[1] 
+                        local_j = center_indices[1] - bx.small_end[1]
                         local_k = center_indices[2] - bx.small_end[2]
                         center_val = float(state_arr[0, local_k, local_j, local_i])
                         break
@@ -250,8 +251,14 @@ class HeatEquationModel(AMReXModelBase):
                     break
             except (IndexError, AttributeError):
                 amr.Print("Warning: Could not access cell (0,0,0,0)")
-        
-        return np.array([max_val, mean_val, std_val, sum_val, center_val])
+
+        return np.array([
+            float(max_val),
+            float(mean_val),
+            float(std_val),
+            float(sum_val),
+            float(center_val)
+        ])
 
 if __name__ == "__main__":
 
