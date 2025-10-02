@@ -4,6 +4,27 @@ from abc import abstractmethod
 
 from pytuq.func.func import ModelWrapperFcn
 import numpy as np
+import amrex.space3d as amr
+
+def load_cupy():
+    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
+    if amr.Config.have_gpu:
+        try:
+            import cupy as cp
+            amr.Print("Note: found and will use cupy")
+            return cp
+        except ImportError:
+            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
+            import numpy as np
+            return np
+        if amr.Config.gpu_backend == "SYCL":
+            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
+            import numpy as np
+            return np
+    else:
+        import numpy as np
+        amr.Print("Note: found and will use numpy")
+        return np
 
 class AMReXBaseModel(ModelWrapperFcn):
     """Base class for AMReX models with yt-style field info"""
@@ -15,6 +36,10 @@ class AMReXBaseModel(ModelWrapperFcn):
     _spatial_domain_bounds = None
 
     def __init__(self, **kwargs):
+        """Initialize AMReX if needed."""
+        if not amr.initialized():
+            amr.initialize([])
+
         # Create modelpar
         modelpar = self._create_modelpar()
 
