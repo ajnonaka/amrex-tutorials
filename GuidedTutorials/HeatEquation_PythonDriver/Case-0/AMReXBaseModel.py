@@ -70,6 +70,36 @@ class AMReXBaseModel(ModelWrapperFcn):
         # Default empty implementation
         return {}
 
+    def _run_simulation(self, params):
+        """
+        Core simulation logic - override in subclasses or use evolve/postprocess.
+        
+        Args:
+            params: numpy array of parameters (1D or 2D)
+            
+        Returns:
+            numpy array of outputs
+        """
+        # Ensure params is 2D (n_samples x n_params)
+        if params.ndim == 1:
+            params = params.reshape(1, -1)
+        
+        n_samples = params.shape[0]
+        outdim = len(self.output_names) if self.output_names else 1
+        outputs = np.zeros((n_samples, outdim))
+        
+        # Check if subclass has evolve/postprocess methods
+        if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
+            for i in range(n_samples):
+                multifab, varnames, geom = self.evolve(params[i, :])
+                outputs[i, :] = self.postprocess(multifab, varnames, geom)
+        else:
+            raise NotImplementedError(
+                "Must implement _run_simulation or evolve/postprocess methods"
+            )
+        
+        return outputs
+
     def _create_modelpar(self):
         """Create basic modelpar dictionary"""
         modelpar = {
