@@ -15,10 +15,18 @@ class AMReXBaseModel(ModelWrapperFcn):
     _spatial_domain_bounds = None
 
     def __init__(self, **kwargs):
+        # Create modelpar
+        modelpar = self._create_modelpar()
         
-        # Create field info
+        super().__init__(lambda x: x, 
+                        ndim=len(modelpar['param_names']) or 1,
+                        modelpar=modelpar,
+                        **kwargs)
+        
         self.field_info = self._create_field_info()
-        print(f"✓ Created field_info with {len(self.field_info)} fields")
+        self.param_names = modelpar['param_names']
+        self.output_names = modelpar['output_names']
+        print(f"✓ Params: {self.param_names}, Outputs: {self.output_names}")
 
     def _create_field_info(self):
         """Create yt-style field info container"""
@@ -61,3 +69,11 @@ class AMReXBaseModel(ModelWrapperFcn):
         """
         # Default empty implementation
         return {}
+
+    def _create_modelpar(self):
+        """Create basic modelpar dictionary"""
+        modelpar = {
+            'param_names': [f[1] for f in self._param_fields],
+            'output_names': [f[1] for f in self._output_fields],
+        }
+        return modelpar
