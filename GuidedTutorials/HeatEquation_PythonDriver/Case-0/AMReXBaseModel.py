@@ -32,6 +32,23 @@ class AMReXBaseModel(ModelWrapperFcn):
 
         return field_info
 
+    def _extract_param_domain(self):
+        """Extract parameter bounds into Function-compatible domain array"""
+        domain_list = []
+
+        for field_tuple in self._param_fields:
+            info = self._get_field_info(field_tuple)
+            if 'bounds' in info:
+                domain_list.append(info['bounds'])
+            else:
+                # Use Function's default domain size
+                dmax = getattr(self, 'dmax', 10.0)
+                domain_list.append([-dmax, dmax])
+
+        if domain_list:
+            return np.array(domain_list)
+        return None
+
     def _get_field_info(self, field_tuple):
         """
         Override in subclass to provide field metadata.
