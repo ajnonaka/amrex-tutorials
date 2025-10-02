@@ -57,18 +57,44 @@ class AMReXBaseModel(ModelWrapperFcn):
             return np.array(domain_list)
         return None
 
-    def _get_field_info(self, field_tuple):
+    def forward(self, x):
         """
-        Override in subclass to provide field metadata.
-        
+        PyTorch-compatible forward method for inference.
+
         Args:
-            field_tuple: (field_type, field_name) tuple
-            
+            x: torch.Tensor or np.ndarray
         Returns:
-            dict with 'bounds', 'units', 'mean', 'std', etc.
+            torch.Tensor if input is tensor, else np.ndarray
         """
-        # Default empty implementation
-        return {}
+        # Check if input is PyTorch tensor
+        is_torch = False
+        if hasattr(x, 'detach'):  # Duck typing for torch.Tensor
+            is_torch = True
+            import torch
+            x_np = x.detach().cpu().numpy()
+        else:
+            x_np = x
+
+        # Run simulation using existing logic
+        outputs = self._run_simulation(x_np)
+
+        # Convert back to torch if needed
+        if is_torch:
+            return torch.from_numpy(outputs).to(x.device)
+        return outputs
+
+    def __call__(self, x):
+        """Function interface - routes through forward() for consistency"""
+        # Ensure x is at least 2D for checkDim
+        x = np.asarray(x)
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+        
+        self.checkDim(x)
+        if hasattr(self, 'domain') and self.domain is not None:
+            self.checkDomain(x)
+        
+        return self.forward(x)
 
     def _run_simulation(self, params):
         """
@@ -91,14 +117,29 @@ class AMReXBaseModel(ModelWrapperFcn):
         # Check if subclass has evolve/postprocess methods
         if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
             for i in range(n_samples):
-                multifab, varnames, geom = self.evolve(params[i, :])
-                outputs[i, :] = self.postprocess(multifab, varnames, geom)
+                # Evolve just returns simulation state
+                sim_state = self.evolve(params[i, :])
+                # Postprocess extracts outputs from state
+                outputs[i, :] = self.postprocess(sim_state)
         else:
             raise NotImplementedError(
                 "Must implement _run_simulation or evolve/postprocess methods"
             )
         
         return outputs
+
+    def _get_field_info(self, field_tuple):
+        """
+        Override in subclass to provide field metadata.
+        
+        Args:
+            field_tuple: (field_type, field_name) tuple
+            
+        Returns:
+            dict with 'bounds', 'units', 'mean', 'std', etc.
+        """
+        # Default empty implementation
+        return {}
 
     def _create_modelpar(self):
         """Create basic modelpar dictionary"""
