@@ -36,6 +36,11 @@ class AMReXBaseModel(ModelWrapperFcn):
     _spatial_domain_bounds = None
 
     def __init__(self, model=None, **kwargs):
+        # Initialize AMReX if needed
+        self.xp = load_cupy()
+        if not amr.initialized():
+            amr.initialize([])
+
         # Create modelpar from existing parameter information
         modelpar = self._create_modelpar()
 
@@ -81,11 +86,6 @@ class AMReXBaseModel(ModelWrapperFcn):
             self.domain_dimensions = (self._spatial_domain_bounds[2]
                                      if len(self._spatial_domain_bounds) > 2
                                      else None)
-
-        # Initialize AMReX if needed
-        self.xp = load_cupy()
-        if not amr.initialized():
-            amr.initialize([])
 
     def _create_field_info(self):
         """Create yt-style field info container"""

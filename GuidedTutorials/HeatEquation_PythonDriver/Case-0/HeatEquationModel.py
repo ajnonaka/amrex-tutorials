@@ -35,7 +35,7 @@ class HeatEquationModel(AMReXBaseModel):
 
     def __init__(self, n_cell: int = 32, max_grid_size: int = 16,
                  nsteps: int = 1000, plot_int: int = 100,
-                 dt: float = 1e-5, use_parmparse: bool = False, **kwargs):
+                 dt: float = 1e-5, use_parmparse: bool = True, **kwargs):
         """
         Initialize heat equation model.
 
@@ -56,6 +56,11 @@ class HeatEquationModel(AMReXBaseModel):
         """
         # Store simulation parameters
         if use_parmparse:
+            # Conditionally initialize AMReX first if using ParmParse
+            if not amr.initialized():
+                amr.initialize([])
+
+            # Parse inputs from file
             from main import parse_inputs
             params = parse_inputs()
             self.n_cell = params['n_cell']
@@ -69,6 +74,10 @@ class HeatEquationModel(AMReXBaseModel):
             self.nsteps = nsteps
             self.plot_int = plot_int
             self.dt = dt
+
+            # Conditionally initialize AMReX
+            if not amr.initialized():
+                amr.initialize([])
 
         # Update spatial domain dimensions based on n_cell
         if self.n_cell != 32:
