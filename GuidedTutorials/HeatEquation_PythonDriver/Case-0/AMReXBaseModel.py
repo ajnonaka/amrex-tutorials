@@ -143,9 +143,12 @@ class AMReXBaseModel(ModelWrapperFcn):
         return outputs
 
     def __call__(self, x):
+
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
         self.checkDim(x)
         if hasattr(self, 'domain') and self.domain is not None:
-            self.checkDomain(x)  # ← Added domain checking
+            self.checkDomain(x)
 
         if self.modelpar is None:
             outputs = self.model(x)
