@@ -128,6 +128,11 @@ class AMReXBaseModel(ModelWrapperFcn):
         
         return outputs
 
+    @property
+    def field_list(self):
+        """All available fields"""
+        return list(self.field_info.keys())
+
     def _get_field_info(self, field_tuple):
         """
         Override in subclass to provide field metadata.
@@ -139,6 +144,20 @@ class AMReXBaseModel(ModelWrapperFcn):
             dict with 'bounds', 'units', 'mean', 'std', etc.
         """
         # Default empty implementation
+        return {}
+
+    def get_param_info(self, param_name):
+        """Get info for a specific parameter"""
+        for field_tuple in self._param_fields:
+            if field_tuple[1] == param_name:
+                return self._get_field_info(field_tuple)
+        return {}
+
+    def get_output_info(self, output_name):
+        """Get info for a specific output"""
+        for field_tuple in self._output_fields:
+            if field_tuple[1] == output_name:
+                return self._get_field_info(field_tuple)
         return {}
 
     def _create_modelpar(self):
