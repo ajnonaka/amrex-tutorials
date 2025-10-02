@@ -179,9 +179,79 @@ class AMReXBaseModel(ModelWrapperFcn):
         return {}
 
     def _create_modelpar(self):
-        """Create basic modelpar dictionary"""
+        """Create modelpar dictionary with statistical properties"""
         modelpar = {
-            'param_names': [f[1] for f in self._param_fields],
-            'output_names': [f[1] for f in self._output_fields],
+            'param_info': {},
+            'output_info': {},
+            'param_names': [],
+            'output_names': [],
+            'defaults': {},
+            'bounds': {},
+            'units': {},
+            'mean': [],
+            'std': [],
+            'distribution': [],  # 'normal', 'uniform', 'lognormal', etc.
+            'pc_type': 'HG',  # Hermite-Gaussian by default
         }
+
+        # Extract parameter information including statistical properties
+        for field_tuple in self._param_fields:
+            field_type, field_name = field_tuple
+            info = self._get_field_info(field_tuple)
+
+            modelpar['param_info'][field_name] = info
+            modelpar['param_names'].append(field_name)
+
+            # Extract statistical properties
+            if 'mean' in info:
+                modelpar['mean'].append(info['mean'])
+            elif 'default' in info:
+                modelpar['mean'].append(info['default'])
+            else:
+                # Use center of bounds if available
+                if 'bounds' in info:
+                    modelpar['mean'].append(np.mean(info['bounds']))
+                else:
+                    modelpar['mean'].append(0.0)
+
+            if 'std' in info:
+                modelpar['std'].append(info['std'])
+            else:
+                # Default to 10% of mean or range
+                if 'bounds' in info:
+                    # Use range/6 as rough std (99.7% within bounds)
+                    modelpar['std'].append((info['bounds'][1] - info['bounds'][0])/6.0)
+                else:
+                    modelpar['std'].append(abs(modelpar['mean'][-1]) * 0.1)
+
+            # Store other properties
+            if 'bounds' in info:
+                modelpar['bounds'][field_name] = info['bounds']
+            if 'units' in info:
+                modelpar['units'][field_name] = info['units']
+            if 'distribution' in info:
+                modelpar['distribution'].append(info['distribution'])
+            else:
+                modelpar['distribution'].append('normal')  # default
+
+        # Convert to numpy arrays for easier manipulation
+        modelpar['mean'] = np.array(modelpar['mean'])
+        modelpar['std'] = np.array(modelpar['std'])
+
+        # Add output information
+        for field_tuple in self._output_fields:
+            field_type, field_name = field_tuple
+            info = self._get_field_info(field_tuple)
+            modelpar['output_info'][field_name] = info
+            modelpar['output_names'].append(field_name)
+
         return modelpar
+
+    def write_param_marginals(self, filename='param_margpc.txt'):
+        """Write parameter marginals file for PC analysis"""
+        with open(filename, 'w') as f:
+            for i, name in enumerate(self.modelpar['param_names']):
+                mean = self.modelpar['mean'][i]
+                std = self.modelpar['std'][i]
+                f.write(f"{mean} {std}\n")
+        print(f"Wrote parameter marginals to {filename}")
