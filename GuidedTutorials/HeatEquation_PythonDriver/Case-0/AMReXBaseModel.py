@@ -7,7 +7,7 @@ import numpy as np
 
 class AMReXBaseModel(ModelWrapperFcn):
     """Base class for AMReX models with yt-style field info"""
-    
+
     # Class-level field definitions (to be overridden by subclasses)
     _field_info_class = None
     _param_fields = []
@@ -17,16 +17,34 @@ class AMReXBaseModel(ModelWrapperFcn):
     def __init__(self, **kwargs):
         # Create modelpar
         modelpar = self._create_modelpar()
-        
-        super().__init__(lambda x: x, 
+
+        # Determine dimensions
+        ndim = len(modelpar['param_names']) or 1
+        outdim = len(modelpar['output_names']) or 1
+
+        super().__init__(lambda x: x,
                         ndim=len(modelpar['param_names']) or 1,
                         modelpar=modelpar,
                         **kwargs)
-        
+
+        # Setup field info and names
         self.field_info = self._create_field_info()
         self.param_names = modelpar['param_names']
         self.output_names = modelpar['output_names']
-        print(f"✓ Params: {self.param_names}, Outputs: {self.output_names}")
+        self.outdim = outdim
+
+        # Extract and set parameter domain
+        param_domain = self._extract_param_domain()
+        if param_domain is not None and len(param_domain) > 0:
+            self.setDimDom(domain=param_domain)
+
+        # Setup spatial domain bounds (yt-style) - separate from parameter bounds
+        if self._spatial_domain_bounds:
+            self.domain_left_edge = self._spatial_domain_bounds[0]
+            self.domain_right_edge = self._spatial_domain_bounds[1]
+            self.domain_dimensions = (self._spatial_domain_bounds[2]
+                                     if len(self._spatial_domain_bounds) > 2
+                                     else None)
 
     def _create_field_info(self):
         """Create yt-style field info container"""
@@ -89,31 +107,31 @@ class AMReXBaseModel(ModelWrapperFcn):
         x = np.asarray(x)
         if x.ndim == 1:
             x = x.reshape(1, -1)
-        
+
         self.checkDim(x)
         if hasattr(self, 'domain') and self.domain is not None:
             self.checkDomain(x)
-        
+
         return self.forward(x)
 
     def _run_simulation(self, params):
         """
         Core simulation logic - override in subclasses or use evolve/postprocess.
-        
+
         Args:
             params: numpy array of parameters (1D or 2D)
-            
+
         Returns:
             numpy array of outputs
         """
         # Ensure params is 2D (n_samples x n_params)
         if params.ndim == 1:
             params = params.reshape(1, -1)
-        
+
         n_samples = params.shape[0]
         outdim = len(self.output_names) if self.output_names else 1
         outputs = np.zeros((n_samples, outdim))
-        
+
         # Check if subclass has evolve/postprocess methods
         if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
             for i in range(n_samples):
@@ -125,7 +143,7 @@ class AMReXBaseModel(ModelWrapperFcn):
             raise NotImplementedError(
                 "Must implement _run_simulation or evolve/postprocess methods"
             )
-        
+
         return outputs
 
     @property
@@ -136,10 +154,10 @@ class AMReXBaseModel(ModelWrapperFcn):
     def _get_field_info(self, field_tuple):
         """
         Override in subclass to provide field metadata.
-        
+
         Args:
             field_tuple: (field_type, field_name) tuple
-            
+
         Returns:
             dict with 'bounds', 'units', 'mean', 'std', etc.
         """
