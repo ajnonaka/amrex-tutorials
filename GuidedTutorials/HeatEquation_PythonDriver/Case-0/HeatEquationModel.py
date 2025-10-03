@@ -13,16 +13,16 @@ class HeatEquationModel(AMReXBaseModel):
 
     # Define parameter fields with proper naming convention
     _param_fields = [
-        ('param', 'diffusion_coefficient'),
-        ('param', 'initial_amplitude'),
-        ('param', 'initial_width'),
+        ('param', 'diffusion_coeff'),
+        ('param', 'init_amplitude'),
+        ('param', 'init_width'),
     ]
 
     # Define output fields
     _output_fields = [
-        ('output', 'max_temperature'),
-        ('output', 'mean_temperature'),
-        ('output', 'std_temperature'),
+        ('output', 'max_temp'),
+        ('output', 'mean_temp'),
+        ('output', 'std_temp'),
         ('output', 'total_energy'),
     ]
 

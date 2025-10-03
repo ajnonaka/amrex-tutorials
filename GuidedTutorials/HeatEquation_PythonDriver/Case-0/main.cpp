@@ -49,8 +49,8 @@ int main (int argc, char* argv[])
     // **********************************
     // DECLARE DATALOG PARAMETERS
     // **********************************
-    const int datwidth = 14;
-    const int datprecision = 6;
+    const int datwidth = 24;
+    const int datprecision = 16;
     const int timeprecision = 13;
     int datalog_int = -1;      // Interval for regular output (<=0 means no regular output)
     bool datalog_final = true; // Write datalog at final step
@@ -288,7 +288,9 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             // Calculate temperature statistics
             amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
             amrex::Real max_temperature = phi_new.max(0);
-            amrex::Real variance = phi_new.norm2(0) / phi_new.boxArray().numPts() - mean_temp * mean_temp;
+            amrex::Real l2_norm = phi_new.norm2(0);
+            amrex::Real sum_sq = l2_norm * l2_norm;
+            amrex::Real variance = sum_sq / phi_new.boxArray().numPts() - mean_temp * mean_temp;
             amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
             amrex::Real total_energy = phi_new.sum(0);
 
