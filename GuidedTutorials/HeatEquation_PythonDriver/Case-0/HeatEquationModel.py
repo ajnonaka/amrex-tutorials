@@ -95,7 +95,7 @@ class HeatEquationModel(AMReXBaseModel):
 
         field_info_dict = {
             # Parameters - match param_margpc.txt values
-            ('param', 'diffusion_coefficient'): {
+            ('param', 'diffusion_coeff'): {
                 'mean': 1.0,
                 'std': 0.25,
                 'bounds': [0.1, 5.0],
@@ -103,7 +103,7 @@ class HeatEquationModel(AMReXBaseModel):
                 'units': 'm**2/s',
                 'display_name': 'Thermal Diffusivity',
             },
-            ('param', 'initial_amplitude'): {
+            ('param', 'init_amplitude'): {
                 'mean': 1.0,
                 'std': 0.25,
                 'bounds': [0.1, 3.0],
@@ -111,7 +111,7 @@ class HeatEquationModel(AMReXBaseModel):
                 'units': 'K',
                 'display_name': 'Initial Temperature',
             },
-            ('param', 'initial_width'): {
+            ('param', 'init_width'): {
                 'mean': 0.01,
                 'std': 0.0025,
                 'bounds': [0.001, 0.1],
@@ -121,15 +121,15 @@ class HeatEquationModel(AMReXBaseModel):
             },
 
             # Outputs - just units and display names
-            ('output', 'max_temperature'): {
+            ('output', 'max_temp'): {
                 'units': 'K',
                 'display_name': 'Maximum Temperature',
             },
-            ('output', 'mean_temperature'): {
+            ('output', 'mean_temp'): {
                 'units': 'K',
                 'display_name': 'Mean Temperature',
             },
-            ('output', 'std_temperature'): {
+            ('output', 'std_temp'): {
                 'units': 'K',
                 'display_name': 'Temperature Std Dev',
             },
