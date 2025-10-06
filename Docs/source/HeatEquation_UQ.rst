@@ -19,19 +19,12 @@ PyTUQ Integration with AMReX Applications
 Goals
 -----
 
-This tutorial demonstrates how to integrate PyTUQ (Python Uncertainty Quantification Toolkit) with AMReX-based applications. PyTUQ expects models to follow a simple interface:
-
-.. code-block:: python
-
-   # Generic PyTUQ model interface
-   outputs = model(inputs)  # Both are numpy arrays
-   # inputs shape: [n_samples, n_parameters]
-   # outputs shape: [n_samples, n_outputs]
+This tutorial demonstrates how to integrate PyTUQ (Python Uncertainty Quantification Toolkit) with AMReX-based applications.
 
 You will learn to:
 
-1. Wrap AMReX simulations to provide this interface
-2. Extract and format simulation outputs as numpy arrays
+1. Configure wrappers for AMReX simulations to interface to PyTUQ
+2. Use inputs and extract datalog outputs
 3. Choose the appropriate integration approach for your workflow
 4. Run sensitivity analysis and inverse modeling using PyTUQ
 
@@ -41,10 +34,10 @@ Prerequisites and Setup
 Required Dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
-Install the following components in order:
+Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/pytuq/blob/main/README.md>`_:
 
 .. code-block:: bash
-   :caption: Complete installation script
+   :caption: Pytuq installation script
 
    #!/bin/bash
    
@@ -52,76 +45,35 @@ Install the following components in order:
    
    # 1. Clone repositories
    git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
-   git clone --branch 25.10 https://github.com/amrex-codes/pyamrex
-   git clone --branch 25.10 https://github.com/amrex-codes/amrex
-   git clone --branch development https://github.com/amrex-codes/amrex-tutorials
-   # Alternative: git clone --branch add_pybind_interface_test https://github.com/jmsexton03/amrex-tutorials
    
-   # 2. Setup conda environment
+   # 2. Setup conda environment (optional, you can add to an existing env)
    # Create conda environment (use -y for non-interactive)
-   conda create -y --name pyamrex_pytuq python=3.11 --no-default-packages
+   conda create -y --name pytuq_integration python=3.11 --no-default-packages
    
    # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
-   # conda create -y --prefix /global/common/software/myproject/$USER/pyamrex_pytuq python=3.11
+   # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
    
-   conda activate pyamrex_pytuq
-   # For NERSC: conda activate /global/common/software/myproject/$USER/pyamrex_pytuq
+   conda activate pytuq_integration
+   # For NERSC: conda activate /global/common/software/myproject/$USER/pytuq_integration
    
-   # 3. Build and install pyAMReX (developer install)
-   cd pyamrex
-   
-   # Set environment variable for AMReX source
-   export AMREX_SRC=$PWD/../amrex
-   
-   # Optional: Set compilers explicitly
-   # export CC=$(which clang)
-   # export CXX=$(which clang++)
-   # For GPU support:
-   # export CUDACXX=$(which nvcc)
-   # export CUDAHOSTCXX=$(which clang++)
-   
-   # Install Python requirements
-   python3 -m pip install -U -r requirements.txt
-   python3 -m pip install -v --force-reinstall --no-deps .
-   
-   # Build with cmake (includes all dimensions)
-   cmake -S . -B build -DAMReX_SPACEDIM="1;2;3" -DpyAMReX_amrex_src=$(pwd)/../amrex
-   cmake --build build --target pip_install -j 8
-   
-   cd ../
-   
-   # 4. Install PyTUQ
+   # 3. Install PyTUQ
    cd pytuq
    python -m pip install -r requirements.txt
    python -m pip install .
    conda install -y dill
    cd ../
    
-   # 5. Setup workflow files (optional - for Case 1 examples)
-   # mkdir rundir
-   # cd rundir
-   # tar -xf ~/workflow_uqpc.tar  # Obtain from PyTUQ examples
-   # cd ../
-   
-   # 6. Verify installation
-   conda list | grep pyamrex  # Should show pyamrex 25.10
+   # 4. Verify installation
    conda list | grep pytuq    # Should show pytuq 1.0.0z
 
+For a full install including this tutorial, amrex, pyamrex, and pytuq see `example_detailed_install.sh <../../../GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh>`_
+   
 .. note::
 
    For NERSC users, consider placing your conda environment in ``/global/common/software`` 
    for better performance and persistence. See the `NERSC Python documentation 
    <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_ 
    for details.
-
-.. warning::
-
-   Ensure version compatibility:
-   
-   - AMReX: 25.10
-   - pyAMReX: 25.10 
-   - PyTUQ: v1.0.0z
-   - amrex-tutorials: development branch (or jmsexton03/add_pybind_interface_test for testing)
 
 Reference PyTUQ Workflow Examples
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,16 +88,16 @@ PyTUQ provides several workflow examples demonstrating the model interface:
      - Model Interface Pattern
    * - Global Sensitivity
      - `ex_pcgsa.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_pcgsa.py>`_
-     - ``y = model(x)`` with polynomial chaos
+     - ``myfunc = Ishigami(); ysam = myfunc(xsam)`` with polynomial chaos
    * - Inverse Modeling
      - `ex_mcmc_fitmodel.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_mcmc_fitmodel.py>`_
-     - ``y_pred = model(params)`` for likelihood evaluation
+     - ``true_model, true_model_params = linear_model, {'W': W, 'b': b}; yd = true_model(true_model_input, true_model_params)`` for likelihood evaluation
    * - Gaussian Process
      - `ex_gp.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_gp.py>`_
-     - Surrogate: ``y_approx = gp.predict(x)``
+     - Surrogate: ``true_model = sin4; y = true_model(x)+datastd*np.random.randn(ntrn)``
    * - Linear Regression
      - `ex_lreg_merr.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_lreg_merr.py>`_
-     - ``y = X @ beta + error``
+     - ``true_model = lambda x: x[:,0]**4 - 2.*x[:,0]**3 #fcb.sin4; y = true_model(x)``
 
 Integration Cases
 -----------------
@@ -258,7 +210,7 @@ Case 1: C++ with Datalog Output
 3. Configure bash wrapper (``model.x``):
 
    .. code-block:: bash
-      :caption: Configuration section of model_wrapper.x
+      :caption: Configuration section of model.x
       
       # Configuration
       EXE="main3d.gnu.ex"
@@ -305,10 +257,10 @@ Case 2: PyAMReX Direct Integration
 
    import numpy as np
    import pyamrex.amrex as amrex
-   from BaseModel import BaseModel
+   from AMReXBaseModel import AMReXBaseModel
 
    #Define inherited class with __call__ and outnames and pnames methods
-   class HeatEquationModel(BaseModel)
+   class HeatEquationModel(AMReXBaseModel)
    
    # Direct usage with PyTUQ
    model = HeatEquationModel()
