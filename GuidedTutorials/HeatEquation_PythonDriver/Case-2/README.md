@@ -1,0 +1,1 @@
+This is an example of an object oriented approach creating a HeatEquationModel object in python that wraps the contents of main.py from the GuidedTutorials/HeatEquation/Source example

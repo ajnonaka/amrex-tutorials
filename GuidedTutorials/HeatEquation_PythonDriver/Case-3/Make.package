@@ -1,0 +1,6 @@
+CEXE_sources += main.cpp
+
+# Add bindings when building for Python
+ifeq ($(USE_PYTHON_MAIN),TRUE)
+  CEXE_sources += bindings.cpp
+endif
