@@ -153,13 +153,6 @@ Integration Cases
 Case 1: C++ Application Wrappers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All three approaches create a Python wrapper providing the ``model(inputs)`` interface.
-
-Common C++ Modifications for HeatEquation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-All C++ HeatEquation cases (1a, 1b, 1c) require the same parameter modifications:
-
 **Implementation Steps:**
 
 1. Add physics parameters to main.cpp declarations:
@@ -199,11 +192,10 @@ All C++ HeatEquation cases (1a, 1b, 1c) require the same parameter modifications
    The key to PyTUQ integration is creating a loop that maps input parameters to output quantities.
    This loop structure differs between cases:
    
-   - **Case 1**: External Python loop writes inputs files, runs executable, parses outputs
-   - **Case 2**: Python loop directly calls pyAMReX functions  
-   - **Case 3**: Python loop calls pybind11-wrapped C++ functions
+   - **Case 1**: Bash workflow manages run directories, runs executable with input parameters, parses outputs
+   - **Case 2**: Python loop directly calls pyAMReX functions 
 
-The cases differ only in output extraction method:
+The simplest output extraction method is described here:
 
 Case 1: C++ with Datalog Output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
