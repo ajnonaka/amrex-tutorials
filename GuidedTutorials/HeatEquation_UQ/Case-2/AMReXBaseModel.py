@@ -175,7 +175,7 @@ class AMReXBaseModel(ModelWrapperFcn):
             params = params.reshape(1, -1)
 
         n_samples = params.shape[0]
-        outdim = len(self.output_names) if self.output_names else 1
+        outdim = getattr(self, 'outdim', len(getattr(self, 'output_names', [])) or 1)
         outputs = np.zeros((n_samples, outdim))
 
         # Check if subclass has evolve/postprocess methods
@@ -190,7 +190,7 @@ class AMReXBaseModel(ModelWrapperFcn):
                 "Must implement _run_simulation or evolve/postprocess methods"
             )
 
-        return outputs
+        return outputs[:, :outdim]
 
     @property
     def field_list(self):

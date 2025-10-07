@@ -186,7 +186,7 @@ class AMReXBaseModel(ModelWrapperFcn):
             params = params.reshape(1, -1)
 
         n_samples = params.shape[0]
-#        outdim = len(self.output_names) if self.output_names else 1
+        outdim = getattr(self, 'outdim', len(getattr(self, 'output_names', [])) or 1)
 
         if self._use_subprocess:
             # Use model.x subprocess approach
@@ -204,7 +204,7 @@ class AMReXBaseModel(ModelWrapperFcn):
                     "Must implement _run_simulation or evolve/postprocess methods"
                 )
         # Ensure we only return outdim outputs
-        return outputs[:, :self.outdim]
+        return outputs[:, :outdim]
 
     def _run_subprocess(self, params):
         """
