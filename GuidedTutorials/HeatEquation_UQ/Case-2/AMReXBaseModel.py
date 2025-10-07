@@ -33,6 +33,8 @@ class AMReXBaseModel(ModelWrapperFcn):
     _field_info_class = None
     _param_fields = []
     _output_fields = []
+    # Requested output fields (defaults to all outputs)
+    _request_out_fields = None
     _spatial_domain_bounds = None
 
     def __init__(self, model=None, **kwargs):
@@ -190,7 +192,15 @@ class AMReXBaseModel(ModelWrapperFcn):
                 "Must implement _run_simulation or evolve/postprocess methods"
             )
 
-        return outputs[:, :outdim]
+        # Return only requested outputs if specified
+        requested = self._request_out_fields or self._output_fields
+        if requested != self._output_fields:
+            all_names = [field[1] for field in self._output_fields]
+            requested_names = [field[1] for field in requested]
+            indices = [all_names.index(name) for name in requested_names]
+            return outputs[:, indices]
+        
+        return outputs
 
     @property
     def field_list(self):

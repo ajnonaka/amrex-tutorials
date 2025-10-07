@@ -6,27 +6,27 @@ import tempfile
 
 from pytuq.func.func import ModelWrapperFcn
 import numpy as np
-import amrex.space3d as amr
+#import amrex.space3d as amr
 
-def load_cupy():
-    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
-    if amr.Config.have_gpu:
-        try:
-            import cupy as cp
-            amr.Print("Note: found and will use cupy")
-            return cp
-        except ImportError:
-            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
-            import numpy as np
-            return np
-        if amr.Config.gpu_backend == "SYCL":
-            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
-            import numpy as np
-            return np
-    else:
-        import numpy as np
-        amr.Print("Note: found and will use numpy")
-        return np
+#def load_cupy():
+#    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
+#    if amr.Config.have_gpu:
+#        try:
+#            import cupy as cp
+#            amr.Print("Note: found and will use cupy")
+#            return cp
+#        except ImportError:
+#            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
+#            import numpy as np
+#            return np
+#        if amr.Config.gpu_backend == "SYCL":
+#            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
+#            import numpy as np
+#            return np
+#    else:
+#        import numpy as np
+#        amr.Print("Note: found and will use numpy")
+#        return np
 
 class AMReXBaseModel(ModelWrapperFcn):
     """Base class for AMReX models with yt-style field info"""
@@ -35,6 +35,8 @@ class AMReXBaseModel(ModelWrapperFcn):
     _field_info_class = None
     _param_fields = []
     _output_fields = []
+    # Requested output fields (defaults to all outputs)
+    _request_out_fields = None
     _spatial_domain_bounds = None
 
     # Subprocess configuration
@@ -43,9 +45,9 @@ class AMReXBaseModel(ModelWrapperFcn):
 
     def __init__(self, model=None, use_subprocess=False, model_script=None, **kwargs):
         # Initialize AMReX if needed
-        self.xp = load_cupy()
-        if not amr.initialized():
-            amr.initialize([])
+#        self.xp = load_cupy()
+#        if not amr.initialized():
+#            amr.initialize([])
 
         # Configure subprocess mode
         self._use_subprocess = use_subprocess or self.__class__._use_subprocess
@@ -203,8 +205,15 @@ class AMReXBaseModel(ModelWrapperFcn):
                 raise NotImplementedError(
                     "Must implement _run_simulation or evolve/postprocess methods"
                 )
-        # Ensure we only return outdim outputs
-        return outputs[:, :outdim]
+        # Return only requested outputs if specified
+        requested = self._request_out_fields or self._output_fields
+        if requested != self._output_fields:
+            all_names = [field[1] for field in self._output_fields]
+            requested_names = [field[1] for field in requested]
+            indices = [all_names.index(name) for name in requested_names]
+            return outputs[:, indices]
+        
+        return outputs
 
     def _run_subprocess(self, params):
         """
