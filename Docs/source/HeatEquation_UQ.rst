@@ -69,6 +69,11 @@ PyAMReX + PyTUQ
 
    **Prerequisites**: pyAMReX installed
 
+   .. code-block:: bash
+       :caption: Use Case-2 directory
+
+        cd GuidedTutorials/HeatEquation_UQ/Case-2
+
     .. code-block:: bash
        :caption: Direct Python integration
 
