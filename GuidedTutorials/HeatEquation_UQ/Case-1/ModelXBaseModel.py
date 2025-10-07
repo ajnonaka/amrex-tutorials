@@ -49,7 +49,7 @@ class HeatEquationModel(AMReXBaseModel):
             ('param', 'diffusion_coeff'): {
                 'mean': 1.0,
                 'std': 0.25,
-                'bounds': [0.1, 5.0],
+                'bounds': [0.25, 1.75],  # mean ± 3*std
                 'distribution': 'normal',
                 'units': 'm**2/s',
                 'display_name': 'Thermal Diffusivity',
@@ -57,7 +57,7 @@ class HeatEquationModel(AMReXBaseModel):
             ('param', 'init_amplitude'): {
                 'mean': 1.0,
                 'std': 0.25,
-                'bounds': [0.1, 3.0],
+                'bounds': [0.25, 1.75],  # mean ± 3*std
                 'distribution': 'normal',
                 'units': 'K',
                 'display_name': 'Initial Temperature',
@@ -65,7 +65,7 @@ class HeatEquationModel(AMReXBaseModel):
             ('param', 'init_width'): {
                 'mean': 0.01,
                 'std': 0.0025,
-                'bounds': [0.001, 0.1],
+                'bounds': [0.0025, 0.0175],  # mean ± 3*std
                 'distribution': 'normal',
                 'units': 'm',
                 'display_name': 'Initial Width',
