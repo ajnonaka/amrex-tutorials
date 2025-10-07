@@ -196,7 +196,7 @@ class AMReXBaseModel(ModelWrapperFcn):
         else:
             # Original in-process method
             outputs = np.zeros((n_samples, outdim))
-            
+
             if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
                 for i in range(n_samples):
                     sim_state = self.evolve(params[i, :])
@@ -212,7 +212,7 @@ class AMReXBaseModel(ModelWrapperFcn):
             requested_names = [field[1] for field in requested]
             indices = [all_names.index(name) for name in requested_names]
             return outputs[:, indices]
-        
+
         return outputs
 
     def _run_subprocess(self, params):
@@ -242,13 +242,13 @@ class AMReXBaseModel(ModelWrapperFcn):
             cmd = f'{self._model_script} {input_file} {output_file}'
             print(f"Running: {cmd}")
             exit_code = os.system(cmd)
-            
+
             if exit_code != 0:
                 raise RuntimeError(f"Command failed with exit code {exit_code}: {cmd}")
 
             # Load outputs
             outputs = np.loadtxt(output_file).reshape(params.shape[0], -1)
-            
+
             return outputs
 
         finally:

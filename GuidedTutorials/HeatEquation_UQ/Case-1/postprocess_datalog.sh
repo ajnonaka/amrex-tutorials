@@ -24,7 +24,7 @@ fi
 if [ "$RUN_COUNTER" -eq 0 ] && [ ! -f "$OUTNAMES_FILE" ]; then
     # Extract header line, remove #, clean up spaces
     header=$(grep '^#' "$DATALOG" | head -1 | sed 's/^#//' | tr -s ' ' | sed 's/^ *//' | sed 's/ *$//')
-    
+
     if [ -n "$header" ]; then
         echo "$header" | tr ' ' '\n' > "$OUTNAMES_FILE"
         echo "Generated $OUTNAMES_FILE from datalog header" >&2

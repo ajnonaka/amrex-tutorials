@@ -199,7 +199,7 @@ class AMReXBaseModel(ModelWrapperFcn):
             requested_names = [field[1] for field in requested]
             indices = [all_names.index(name) for name in requested_names]
             return outputs[:, indices]
-        
+
         return outputs
 
     @property
