@@ -1,30 +1,32 @@
 from pytuq.func.func import ModelWrapperFcn
 import numpy as np
 from abc import abstractmethod
+import os
+import tempfile
 
 from pytuq.func.func import ModelWrapperFcn
 import numpy as np
-import amrex.space3d as amr
+#import amrex.space3d as amr
 
-def load_cupy():
-    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
-    if amr.Config.have_gpu:
-        try:
-            import cupy as cp
-            amr.Print("Note: found and will use cupy")
-            return cp
-        except ImportError:
-            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
-            import numpy as np
-            return np
-        if amr.Config.gpu_backend == "SYCL":
-            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
-            import numpy as np
-            return np
-    else:
-        import numpy as np
-        amr.Print("Note: found and will use numpy")
-        return np
+#def load_cupy():
+#    """Load appropriate array library (CuPy for GPU, NumPy for CPU)."""
+#    if amr.Config.have_gpu:
+#        try:
+#            import cupy as cp
+#            amr.Print("Note: found and will use cupy")
+#            return cp
+#        except ImportError:
+#            amr.Print("Warning: GPU found but cupy not available! Using numpy...")
+#            import numpy as np
+#            return np
+#        if amr.Config.gpu_backend == "SYCL":
+#            amr.Print("Warning: SYCL GPU backend not yet implemented for Python")
+#            import numpy as np
+#            return np
+#    else:
+#        import numpy as np
+#        amr.Print("Note: found and will use numpy")
+#        return np
 
 class AMReXBaseModel(ModelWrapperFcn):
     """Base class for AMReX models with yt-style field info"""
@@ -37,11 +39,20 @@ class AMReXBaseModel(ModelWrapperFcn):
     _request_out_fields = None
     _spatial_domain_bounds = None
 
-    def __init__(self, model=None, **kwargs):
+    # Subprocess configuration
+    _model_script = './model.x'  # Path to model.x wrapper script
+    _use_subprocess = False  # Enable subprocess mode
+
+    def __init__(self, model=None, use_subprocess=False, model_script=None, **kwargs):
         # Initialize AMReX if needed
-        self.xp = load_cupy()
-        if not amr.initialized():
-            amr.initialize([])
+#        self.xp = load_cupy()
+#        if not amr.initialized():
+#            amr.initialize([])
+
+        # Configure subprocess mode
+        self._use_subprocess = use_subprocess or self.__class__._use_subprocess
+        if model_script:
+            self._model_script = model_script
 
         # Create modelpar from existing parameter information
         modelpar = self._create_modelpar()
@@ -164,7 +175,7 @@ class AMReXBaseModel(ModelWrapperFcn):
 
     def _run_simulation(self, params):
         """
-        Core simulation logic - override in subclasses or use evolve/postprocess.
+        Core simulation logic - uses subprocess if enabled.
 
         Args:
             params: numpy array of parameters (1D or 2D)
@@ -178,20 +189,22 @@ class AMReXBaseModel(ModelWrapperFcn):
 
         n_samples = params.shape[0]
         outdim = getattr(self, 'outdim', len(getattr(self, 'output_names', [])) or 1)
-        outputs = np.zeros((n_samples, outdim))
 
-        # Check if subclass has evolve/postprocess methods
-        if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
-            for i in range(n_samples):
-                # Evolve just returns simulation state
-                sim_state = self.evolve(params[i, :])
-                # Postprocess extracts outputs from state
-                outputs[i, :] = self.postprocess(sim_state)
+        if self._use_subprocess:
+            # Use model.x subprocess approach
+            outputs = self._run_subprocess(params)
         else:
-            raise NotImplementedError(
-                "Must implement _run_simulation or evolve/postprocess methods"
-            )
+            # Original in-process method
+            outputs = np.zeros((n_samples, outdim))
 
+            if hasattr(self, 'evolve') and hasattr(self, 'postprocess'):
+                for i in range(n_samples):
+                    sim_state = self.evolve(params[i, :])
+                    outputs[i, :] = self.postprocess(sim_state)
+            else:
+                raise NotImplementedError(
+                    "Must implement _run_simulation or evolve/postprocess methods"
+                )
         # Return only requested outputs if specified
         requested = self._request_out_fields or self._output_fields
         if requested != self._output_fields:
@@ -201,6 +214,48 @@ class AMReXBaseModel(ModelWrapperFcn):
             return outputs[:, indices]
 
         return outputs
+
+    def _run_subprocess(self, params):
+        """
+        Run simulation using model.x subprocess (like online_bb example).
+
+        Args:
+            params: 2D numpy array (n_samples x n_params)
+
+        Returns:
+            2D numpy array (n_samples x n_outputs)
+        """
+        # Check if model.x exists
+        if not os.path.exists(self._model_script):
+            raise FileNotFoundError(f"Model script not found: {self._model_script}")
+
+        # Create temporary input/output files
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            input_file = f.name
+            np.savetxt(f, params)
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            output_file = f.name
+
+        try:
+            # Run model.x
+            cmd = f'{self._model_script} {input_file} {output_file}'
+            print(f"Running: {cmd}")
+            exit_code = os.system(cmd)
+
+            if exit_code != 0:
+                raise RuntimeError(f"Command failed with exit code {exit_code}: {cmd}")
+
+            # Load outputs
+            outputs = np.loadtxt(output_file).reshape(params.shape[0], -1)
+
+            return outputs
+
+        finally:
+            # Clean up temporary files
+            for f in [input_file, output_file]:
+                if os.path.exists(f):
+                    os.unlink(f)
 
     @property
     def field_list(self):
