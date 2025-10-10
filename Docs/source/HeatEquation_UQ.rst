@@ -28,8 +28,8 @@ Installation
 Examples
 --------
 
-C++ AMReX + PyTUQ
-~~~~~~~~~~~~~~~~~
+C++ AMReX + PyTUQ (BASH driven)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. admonition:: Build and Run
    :class: dropdown
@@ -40,6 +40,25 @@ C++ AMReX + PyTUQ
       :caption: Build C++ example
 
       cd GuidedTutorials/HeatEquation_UQ/Case-1
+      make -j4
+
+   .. code-block:: bash
+      :caption: Run with bash script
+
+      ./wf_uqpc.x
+
+C++ AMReX + PyTUQ (python driven)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. admonition:: Build and Run
+   :class: dropdown
+
+   **Prerequisites**: AMReX compiled with MPI support
+
+   .. code-block:: bash
+      :caption: Build C++ example
+
+      cd GuidedTutorials/HeatEquation_UQ/Case-2
       make -j4
 
    .. code-block:: bash
@@ -72,7 +91,7 @@ PyAMReX + PyTUQ
    .. code-block:: bash
        :caption: Use Case-2 directory
 
-        cd GuidedTutorials/HeatEquation_UQ/Case-2
+        cd GuidedTutorials/HeatEquation_UQ/Case-3
 
     .. code-block:: bash
        :caption: Direct Python integration
@@ -109,18 +128,19 @@ C++ AMReX on Perlmutter
    .. code-block:: bash
       :caption: perlmutter_build.sh
 
-      module load PrgEnv-gnu cuda
+      module load PrgEnv-gnu cudatoolkit
       make USE_MPI=TRUE USE_CUDA=TRUE
 
    .. code-block:: bash
       :caption: Submit job
 
-      sbatch run_amrex_uq.slurm
+      sbatch wk_uqpc.slurm
 
-PyAMReX on Perlmutter
-~~~~~~~~~~~~~~~~~~~~~
+.. PyAMReX on Perlmutter
+.. ~~~~~~~~~~~~~~~~~~~~~
 
-.. admonition:: Perlmutter Setup
+..
+ admonition:: Perlmutter Setup
    :class: dropdown
 
    .. code-block:: bash
@@ -143,135 +163,8 @@ PyAMReX on Perlmutter
        <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
        for details.
 
-Summary
--------
-
-**Key Takeaways:**
-
-* PyTUQ can use models with ``outputs = model(inputs)`` interface
-* C++ codes need wrapper scripts; Python codes integrate directly
-* Best practices for Perlmutter requires environment modules and MPI configuration
-
-Additional Resources
---------------------
-
-- `PyTUQ Documentation <https://pytuq.readthedocs.io>`_
-- `PyTUQ Examples directory <https://github.com/sandialabs/pytuq/tree/main/examples>`_
-- `AMReX Documentation <https://amrex-codes.github.io/amrex/docs_html/>`_
-- `pyAMReX Documentation <https://pyamrex.readthedocs.io>`_
-- :ref:`_guided_heat` - Base tutorial this builds upon
-
-.. seealso::
-
-   For complete working examples of the ``outputs = model(inputs)`` pattern, see:
-
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1/`` - C++ wrappers
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-2/`` - PyAMReX native
-
-PyTUQ Integration with AMReX Applications (First draft)
-=======================================================
-
-.. admonition:: **Time to Complete**: 30-45 minutes
-   :class: note
-
-   **Prerequisites**:
-      - Basic knowledge of AMReX build system
-      - Familiarity with Python/NumPy
-      - Understanding of uncertainty quantification concepts
-
-   **What you will learn**:
-      - How to wrap AMReX simulations with PyTUQ's generic model interface
-      - Converting simulation codes to ``outputs = model(inputs)`` pattern
-      - Processing simulation outputs for UQ analysis
-
-Goals
------
-
-This tutorial demonstrates how to integrate PyTUQ (Python Uncertainty Quantification Toolkit) with AMReX-based applications.
-
-You will learn to:
-
-1. Configure wrappers for AMReX simulations to interface to PyTUQ
-2. Use inputs and extract datalog outputs
-3. Choose the appropriate integration approach for your workflow
-4. Run sensitivity analysis and inverse modeling using PyTUQ
-
-Prerequisites and Setup
------------------------
-
-Required Dependencies
-~~~~~~~~~~~~~~~~~~~~~
-
-Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/pytuq/blob/main/README.md>`_:
-
-.. code-block:: bash
-   :caption: Pytuq installation script
-
-   #!/bin/bash
-
-   # For NERSC: module load conda
-
-   # 1. Clone repositories
-   git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
-
-   # 2. Setup conda environment (optional, you can add to an existing env)
-   # Create conda environment (use -y for non-interactive)
-   conda create -y --name pytuq_integration python=3.11 --no-default-packages
-
-   # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
-   # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
-
-   conda activate pytuq_integration
-   # For NERSC: conda activate /global/common/software/myproject/$USER/pytuq_integration
-
-   # 3. Install PyTUQ
-   cd pytuq
-   python -m pip install -r requirements.txt
-   python -m pip install .
-   conda install -y dill
-   cd ../
-
-   # 4. Verify installation
-   conda list | grep pytuq    # Should show pytuq 1.0.0z
-
-For a full install including this tutorial, amrex, pyamrex, and pytuq see `example_detailed_install.sh <../../../GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh>`_
-
-.. note::
-
-   For NERSC users, consider placing your conda environment in ``/global/common/software``
-   for better performance and persistence. See the `NERSC Python documentation
-   <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
-   for details.
-
-Reference PyTUQ Workflow Examples
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PyTUQ provides several workflow examples demonstrating the model interface:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Analysis Type
-     - Example File
-     - Model Interface Pattern
-   * - Global Sensitivity
-     - `ex_pcgsa.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_pcgsa.py>`_
-     - ``myfunc = Ishigami(); ysam = myfunc(xsam)`` with polynomial chaos
-   * - Inverse Modeling
-     - `ex_mcmc_fitmodel.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_mcmc_fitmodel.py>`_
-     - ``true_model, true_model_params = linear_model, {'W': W, 'b': b}; yd = true_model(true_model_input, true_model_params)`` for likelihood evaluation
-   * - Gaussian Process
-     - `ex_gp.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_gp.py>`_
-     - Surrogate: ``true_model = sin4; y = true_model(x)+datastd*np.random.randn(ntrn)``
-   * - Linear Regression
-     - `ex_lreg_merr.py <https://github.com/sandialabs/pytuq/blob/main/examples/ex_lreg_merr.py>`_
-     - ``true_model = lambda x: x[:,0]**4 - 2.*x[:,0]**3 #fcb.sin4; y = true_model(x)``
-
-Integration Cases
------------------
-
-Case 1: C++ Application Wrappers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Extending this tutorial to other applications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Implementation Steps:**
 
@@ -307,18 +200,10 @@ Case 1: C++ Application Wrappers
       // Evolution
       phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
 
-.. note::
-
-   The key to PyTUQ integration is creating a loop that maps input parameters to output quantities.
-   This loop structure differs between cases:
-
-   - **Case 1**: Bash workflow manages run directories, runs executable with input parameters, parses outputs
-   - **Case 2**: Python loop directly calls pyAMReX functions
-
 The simplest output extraction method is described here:
 
-Case 1: C++ with Datalog Output
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C++ with Datalog Output
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. admonition:: When to use
    :class: tip
@@ -375,105 +260,28 @@ Case 1: C++ with Datalog Output
                amr.DataLog(0) << time << " " << max_temperature << " " << mean_temp << std::endl;
            }
 
-3. Configure bash wrapper (``model.x``):
+Summary
+-------
 
-   .. code-block:: bash
-      :caption: Configuration section of model.x
+**Key Takeaways:**
 
-      # Configuration
-      EXE="main3d.gnu.ex"
-      INPUTS="inputs"
-      INCLUDE_HEADER=true
-      POSTPROCESSOR="./postprocess_datalog.sh"
-
-   The ``model.x`` script (based on PyTUQ workflow examples) handles:
-
-   - Reading input parameters from file
-   - Setting up AMReX inputs command line options with parameters
-   - Running the executable
-   - Calling postprocessor to extract outputs
-   - Writing outputs to file
-
-4. Set up files like pnames.txt
-   diffusion_coeff
-   init_amplitude
-   init_width
-
-5. Use the pytuq infrastructure for setting up the inputs, e.g.
-   .. code-block:: bash
-      :caption: Configuration for input PC coefficients
-
-       ## (a) Given mean and standard deviation of each normal random parameter
-       echo "1 0.1 " > param_margpc.txt
-       echo "1 0.1" >> param_margpc.txt
-       echo ".01 0.0025" >> param_margpc.txt
-       PC_TYPE=HG # Hermite-Gaussian PC
-       INPC_ORDER=1
-
-Case 2: PyAMReX Direct Integration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. admonition:: When to use
-   :class: tip
-
-   For Python-based AMReX applications - provides native model interface.
-
-**Implementation:**
-
-.. code-block:: python
-   :caption: HeatEquationModel.py
-
-   import numpy as np
-   import pyamrex.amrex as amrex
-   from AMReXBaseModel import AMReXBaseModel
-
-   #Define inherited class with __call__ and outnames and pnames methods
-   class HeatEquationModel(AMReXBaseModel)
-
-   # Direct usage with PyTUQ
-   model = HeatEquationModel()
-   # model now provides the required interface
-
-Running Complete UQ Workflows
-------------------------------
-
-Example workflow combining model with PyTUQ analysis:
-[add example from pytuq examples]
-
-Troubleshooting
----------------
-
-Common Issues and Solutions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Issue
-     - Solution
-   * - Model returns wrong shape
-     - Ensure output is ``[n_samples, n_outputs]``, use ``reshape(-1, n_outputs)``
-   * - Model crashes on certain parameters
-     - Add parameter validation and bounds checking in wrapper
-   * - Slow execution for many samples
-     - Consider parallel execution or surrogate models
-   * - Outputs uncorrelated with inputs
-     - Verify parameters are actually being used in simulation
-   * - Memory issues with large runs
-     - Process in batches, clean up temporary files
+* PyTUQ can use models with ``outputs = model(inputs)`` interface
+* C++ codes can use wrapper scripts or gnu parallel; Python codes integrate directly
+* Best practices for Perlmutter requires python environment modules
 
 Additional Resources
 --------------------
 
-- `PyTUQ Documentation <https://pytuq.readthedocs.io>`_
-- `PyTUQ Examples Repository <https://github.com/pytuq/examples>`_
+- `PyTUQ Documentation <https://sandialabs.github.io/pytuq>`_
+- `PyTUQ Examples directory <https://github.com/sandialabs/pytuq/tree/main/examples>`_
 - `AMReX Documentation <https://amrex-codes.github.io/amrex/docs_html/>`_
 - `pyAMReX Documentation <https://pyamrex.readthedocs.io>`_
-- :ref:`guided_heat_equation` - Base tutorial this builds upon
+- :ref:`_guided_heat` - Base tutorial this builds upon
 
 .. seealso::
 
    For complete working examples of the ``outputs = model(inputs)`` pattern, see:
 
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1/`` - C++ wrappers
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-2/`` - PyAMReX native
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1/`` - C++ executable and python scripts called from a bash workflow script
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-2/`` - C++ executable driven by python wrapping bash
+   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-3/`` - PyAMReX native
