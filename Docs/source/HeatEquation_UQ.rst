@@ -53,7 +53,10 @@ C++ AMReX + PyTUQ (BASH driven)
 .. dropdown:: Build and Run
    :open:
 
-   **Prerequisites**: AMReX compiled with MPI support
+   **Prerequisites**:
+
+   - AMReX and pytuq cloned at the same directory level as amrex-tutorials
+   - GNU Parallel for task management: ``sudo apt-get install parallel``
 
    .. code-block:: bash
       :caption: Build C++ example
@@ -115,6 +118,20 @@ C++ AMReX + PyTUQ (python driven)
       :caption: Run UQ analysis
 
       python ./ex_pcgsa.py
+
+   .. note::
+
+      **Offline Workflow (similar to Case-1):**
+
+      Case-2 can also be run in offline mode where you manually generate training data, then fit the surrogate model. This is useful for running simulations on HPC systems and post-processing locally:
+
+      .. code-block:: bash
+         :caption: Generate training data offline
+
+         # Call model.x on parameter samples to generate outputs
+         ./model.x ptrain.txt ytrain.txt
+
+      The ``model.x`` wrapper script manages calling your C++ executable for each parameter set and collecting the outputs. After generating ``ytrain.txt``, use PyTUQ's ``pc_fit.py`` to construct the surrogate model.
 
 PyAMReX + PyTUQ
 ~~~~~~~~~~~~~~~
