@@ -38,6 +38,12 @@ Installation
    pip install -r requirements.txt
    pip install .
 
+.. note::
+
+   **Comprehensive Installation:**
+
+   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh``
+
 Examples
 --------
 
@@ -45,6 +51,7 @@ C++ AMReX + PyTUQ (BASH driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. dropdown:: Build and Run
+   :open:
 
    **Prerequisites**: AMReX compiled with MPI support
 
@@ -160,10 +167,6 @@ PyAMReX + PyTUQ
 
 Perlmutter Deployment
 ---------------------
-
-.. note::
-
-   Module setup required: ``module load python cuda``
 
 C++ AMReX on Perlmutter
 ~~~~~~~~~~~~~~~~~~~~~~~~
