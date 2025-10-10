@@ -86,6 +86,9 @@ int main (int argc, char* argv[])
         datalog_int = -1;
         pp.query("datalog_int",datalog_int);
 
+        datalog_filename = "datalog.txt";
+        pp.query("datalog",datalog_filename);
+
         // time step
         pp.get("dt",dt);
 
@@ -203,7 +206,7 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
     // WRITE DATALOG FILE
     // **********************************
     if (amrex::ParallelDescriptor::IOProcessor() && (datalog_int>0 || datalog_final)) {
-        std::ofstream datalog("datalog.txt");  // truncate mode to start fresh
+        std::ofstream datalog(datalog_filename);  // truncate mode to start fresh
         datalog << "#" << std::setw(datwidth-1) << "     max_temp";
         datalog << std::setw(datwidth) << "    mean_temp";
         datalog << std::setw(datwidth) << "     std_temp";
