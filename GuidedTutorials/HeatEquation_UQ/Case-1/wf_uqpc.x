@@ -20,9 +20,10 @@ echo "total_energy" >> outnames.txt
 
 PCTYPE="HG"
 ORDER=1
+NSAM=15
 
 ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
-${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE 5
+${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE $NSAM
 
 #cp qsam.txt ptrain.txt
 
