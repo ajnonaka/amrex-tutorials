@@ -126,6 +126,19 @@ C++ AMReX on Perlmutter
    :class: dropdown
 
    .. code-block:: bash
+      :caption: Virtual environment setup
+
+      module load conda
+      # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
+      # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
+      conda create -y --name pytuq_integration python=3.11
+      git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
+      cd pytuq
+      echo "dill" >> requirements.txt
+      pip install -r requirements.txt
+      pip install .
+
+   .. code-block:: bash
       :caption: perlmutter_build.sh
 
       module load PrgEnv-gnu cudatoolkit
@@ -134,31 +147,13 @@ C++ AMReX on Perlmutter
    .. code-block:: bash
       :caption: Submit job
 
+      # If stored in common software: conda activate /global/common/software/myproject/$USER/pytuq_integration
+      conda activate pytuq_integration
       sbatch wk_uqpc.slurm
-
-.. PyAMReX on Perlmutter
-.. ~~~~~~~~~~~~~~~~~~~~~
-
-..
- admonition:: Perlmutter Setup
-   :class: dropdown
-
-   .. code-block:: bash
-      :caption: Virtual environment setup
-
-      module load conda
-      # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
-      conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
-
-
-   .. code-block:: bash
-      :caption: Run PyAMReX + PyTUQ
-
-      srun -n 4 python run_pyamrex_uq.py
 
    .. note::
 
-       For NERSC users, consider placing your conda environment in ``/global/common/software``
+       For NERSC, consider placing your conda environment in ``/global/common/software``
        for better performance and persistence. See the `NERSC Python documentation
        <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
        for details.
