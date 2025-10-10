@@ -69,6 +69,75 @@ C++ AMReX + PyTUQ (BASH driven)
 
       ./wf_uqpc.x
 
+.. dropdown:: Understanding GNU Parallel Workflow Pattern
+
+   After PyTUQ scripts generate an input parameter file (``ptrain.txt``), the Case-1 workflow uses GNU Parallel to run multiple simulations efficiently and collect outputs into a results file (``ytrain.txt``) that PyTUQ can use for surrogate model fitting. Here's how the pattern works:
+
+   .. code-block:: bash
+      :caption: Example GNU Parallel command
+
+      parallel --jobs 6 --colsep ' ' -k \
+        './main3d.gnu.ex inputs param1={1} param2={2} param3={3} \
+          amr.datalog=datalog_{#}.txt \
+          amr.plot_file=plt_{#} \
+          amr.check_file=chk_{#} \
+          && tail -1 datalog_{#}.txt' \
+        :::: ptrain.txt > ytrain.txt
+
+   **Understanding the placeholders:**
+
+   - ``{1}``, ``{2}``, ``{3}`` - **Column numbers** from the input file (``ptrain.txt``)
+   - ``{#}`` - **Line number** from the input file (used for unique file naming)
+
+   **How it works:**
+
+   1. **Input file (ptrain.txt)** - Space/tab-separated parameter samples (one row per simulation):
+
+      .. code-block:: text
+
+         1.0 1.0 0.01
+         0.75 1.25 0.0125
+         1.25 0.75 0.0075
+
+   2. **For each row**, GNU Parallel:
+
+      - Substitutes ``{1}`` with column 1 (e.g., ``1.0``) → ``param1=1.0``
+      - Substitutes ``{2}`` with column 2 (e.g., ``1.0``) → ``param2=1.0``
+      - Substitutes ``{3}`` with column 3 (e.g., ``0.01``) → ``param3=0.01``
+      - Substitutes ``{#}`` with the line number (e.g., ``1``) → ``datalog_1.txt``, ``plt_1``, ``chk_1``
+
+   3. **After simulation**, extracts output with ``tail -1 datalog_{#}.txt``
+
+   4. **Output file (ytrain.txt)** - Collected results (one row per simulation):
+
+      .. code-block:: text
+
+         1.5801622094
+         1.6234567890
+         1.4567890123
+
+   **Key options:**
+
+   - ``--jobs 6`` - Run 6 simulations in parallel
+   - ``--colsep ' '`` - Columns separated by spaces (use ``'\t'`` for tabs)
+   - ``-k`` - Keep output order matching input order
+   - ``::::`` - Read input from file (``ptrain.txt``)
+
+   **Output extraction alternatives:**
+
+   Instead of ``tail -1 datalog_{#}.txt``, you can use other extraction methods (see :ref:`pytuq_extending_tutorial` for output examples):
+
+   - **Plotfile tools**: ``fextrema.gnu.ex plt_{#} | tail -1 | awk '{print $3}'``
+   - **Custom post-processing script**: ``./postprocess_run.sh {#}``
+
+     A post-processing script can take the line number ``{#}`` as an argument to locate and process the corresponding simulation outputs (datalog, plotfile, etc.), then print the space/tab-separated row for that simulation.
+
+   This pattern makes it easy to:
+
+   - Take a parameter file with N rows (one per simulation)
+   - Run simulations in parallel with unique output files
+   - Collect results into an output file with N rows (one per simulation result)
+
 C++ AMReX + PyTUQ (python driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
