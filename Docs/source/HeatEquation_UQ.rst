@@ -2,8 +2,8 @@
 
 .. _pytuq_quickstart:
 
-PyTUQ Quick Start Guide
-=======================
+PyTUQ
+=====
 
 .. admonition:: **Time to Complete**: 15-20 minutes
    :class: note
@@ -158,8 +158,8 @@ PyAMReX + PyTUQ
 
       python ./ex_pcgsa.py
 
-Perlmutter Deployment (not implemented)
----------------------------------------
+Perlmutter Deployment
+---------------------
 
 .. note::
 
