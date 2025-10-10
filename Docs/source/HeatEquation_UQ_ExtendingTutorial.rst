@@ -102,6 +102,119 @@ Output example: C++ Datalog
                amr.DataLog(0) << time << " " << max_temperature << " " << mean_temp << std::endl;
            }
 
+Output example: Plotfiles with AMReX Tools
+-------------------------------------------
+
+.. admonition:: When to use
+   :class: tip
+
+   Choose when you already write plotfiles and want to use AMReX's built-in analysis tools. This works well for offline workflows (like Case-1) where simulations run on HPC and post-processing happens locally.
+
+AMReX provides several compiled tools in ``amrex/Tools/Plotfile/`` for extracting information from plotfiles without writing custom code.
+
+**Key Tools:**
+
+- ``fextrema``: Extract minimum and maximum values for each variable
+- ``fextract``: Extract 1D slices through plotfiles
+- ``fvarnames``: List variable names in a plotfile
+- ``fcompare``: Compare two plotfiles
+
+**Implementation Steps:**
+
+1. Ensure your simulation writes plotfiles:
+
+   .. code-block:: cpp
+
+      // In your main time-stepping loop
+      if (plot_int > 0 && (step % plot_int == 0 || step == nsteps)) {
+          const std::string& pltfile = amrex::Concatenate("plt", step, 5);
+          WriteSingleLevelPlotfile(pltfile, phi_new, varnames, geom, time, step);
+      }
+
+2. Build the AMReX plotfile tools (one-time setup):
+
+   .. code-block:: bash
+
+      cd $AMREX_HOME/Tools/Plotfile
+      make -j4
+
+   This creates executables like ``fextrema.gnu.ex``, ``fextract.gnu.ex``, etc.
+
+3. Use ``fextrema`` to extract min/max values:
+
+   .. code-block:: bash
+
+      # Extract extrema for all variables
+      ./fextrema.gnu.ex plt00100/
+
+      # Output:
+      # plotfile = plt00100/
+      # time = 0.001000000000000002
+      #          variables          minimum value          maximum value
+      # phi                                     1           1.5801622094
+
+4. Parse the output in your UQ workflow script:
+
+   .. code-block:: bash
+      :caption: In wf_uqpc.x or model.x wrapper
+
+      #!/bin/bash
+      # Run simulation
+      ./heat_equation_exec inputs diffusion_coeff=$1 init_amplitude=$2
+
+      # Option 1: Analyze a specific plotfile (if you know the timestep)
+      FINAL_PLT="plt00100"
+
+      # Option 2: Find the final plotfile dynamically
+      FINAL_PLT=$(ls -d plt[0-9]* | tail -1)
+
+      # Option 3: Use a more sophisticated approach (adapted from AMReX-Astro/workflow)
+      # get_last_plotfile() {
+      #     dir=${1:-.}  # Use current directory if no argument
+      #     num=${2:-1}  # How far back to go (1 = most recent)
+      #     ls -d $dir/plt[0-9]* 2>/dev/null | sort -t plt -k 2 -g | tail -$num | head -1
+      # }
+      # FINAL_PLT=$(get_last_plotfile . 1)
+
+      # Extract maximum temperature using fextrema
+      # Use tail -1 to get the last line, then awk to extract column 3 (ignoring variable name)
+      MAX_TEMP=$(./fextrema.gnu.ex $FINAL_PLT | tail -1 | awk '{print $3}')
+
+      # Output in format expected by PyTUQ (space or tab separated)
+      echo "$MAX_TEMP"
+
+   .. note::
+
+      **Parsing strategies:**
+
+      - **Simple approach**: Use ``tail -1`` to get the last line of output, then extract columns 2 and 3 (min/max) with ``awk``, ignoring the variable name in column 1
+      - **Robust approach**: Use ``fvarnames`` to get variable names first, then use ``fextrema -v varname`` to extract specific variables
+      - For multiple variables, process each separately and combine into space/tab-separated output
+
+5. Example: Extracting multiple quantities from plotfile:
+
+   .. code-block:: bash
+      :caption: extract_from_plotfile.sh
+
+      #!/bin/bash
+      PLOTFILE=$1
+      FEXTREMA_PATH="$AMREX_HOME/Tools/Plotfile/fextrema.gnu.ex"
+
+      # Extract max value (column 3 from last line)
+      MAX_VAL=$($FEXTREMA_PATH $PLOTFILE | tail -1 | awk '{print $3}')
+
+      # Extract min value (column 2 from last line)
+      MIN_VAL=$($FEXTREMA_PATH $PLOTFILE | tail -1 | awk '{print $2}')
+
+      # Output as space-separated values
+      echo "$MAX_VAL $MIN_VAL"
+
+.. seealso::
+
+   - AMReX Plotfile Tools: ``$AMREX_HOME/Tools/Plotfile/``
+   - Each tool prints usage information when called with no arguments: ``./fextract.gnu.ex``
+   - For robust plotfile/checkpoint selection utilities, see `AMReX-Astro workflow get_last_checkpoint <https://github.com/AMReX-Astro/workflow/blob/0ab59ff1c6e7317650e2c7619e0b81c179e2a09a/wdmerger/run_utils.sh#L160>`_
+
 Extending to PyAMReX Applications
 ----------------------------------
 
