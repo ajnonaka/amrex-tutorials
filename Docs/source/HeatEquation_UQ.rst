@@ -13,8 +13,8 @@ AMReX-pytuq
       - Run AMReX + PyTUQ examples
       - Deploy on Perlmutter
 
-Motivation
-----------
+Overview
+--------
 
 AMReX simulations deliver high-fidelity, accurate results for complex physics problems, but parameter studies and uncertainty quantification can require hundreds or thousands of runs—making comprehensive analysis computationally prohibitive.
 
@@ -22,9 +22,9 @@ This tutorial demonstrates how to improve efficiency without sacrificing accurac
 
 PyTUQ (Python interface to the UQ Toolkit) provides specialized tools for surrogate construction and global sensitivity analysis, enabling rapid parameter space exploration and dimensionality reduction for scientific applications.
 
-We demonstrate how to integrate PyTUQ with your AMReX application through three practical workflows: C++ executables with file-based I/O (Case-1), Python-wrapped C++ codes (Case-2), and native PyAMReX applications (Case-3).
+We demonstrate how to integrate PyTUQ with your AMReX application through three practical workflows: C++ executables managed with gnu parallel (Case-1), Python-driven C++ executables with bash run management (Case-2), and native PyAMReX applications (Case-3).
 
-Located in ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ``, this example analyzes a heat equation solver to illustrate the complete forward UQ workflow from parameter sampling through sensitivity analysis.
+Located in ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ``, this example analyzes a heat equation solver to illustrate the complete forward UQ workflow from parameter sampling through sensitivity analysis. After running the provided examples, the Customizing the Workflow section explains the underlying problem setup and provides step-by-step guidance for adapting this workflow to your own AMReX application
 
 Installation
 ------------
