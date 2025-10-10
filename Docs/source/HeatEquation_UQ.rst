@@ -44,8 +44,7 @@ Examples
 C++ AMReX + PyTUQ (BASH driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. admonition:: Build and Run
-   :class: dropdown
+.. dropdown:: Build and Run
 
    **Prerequisites**: AMReX compiled with MPI support
 
@@ -63,8 +62,7 @@ C++ AMReX + PyTUQ (BASH driven)
 C++ AMReX + PyTUQ (python driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. admonition:: Build and Run
-   :class: dropdown
+.. dropdown:: Build and Run
 
    **Prerequisites**: AMReX compiled with MPI support
 
@@ -74,54 +72,89 @@ C++ AMReX + PyTUQ (python driven)
       cd GuidedTutorials/HeatEquation_UQ/Case-2
       make -j4
 
-   .. code-block:: bash
-      :caption: Copy ex_pcgsa.py and use the black box model
+   .. note::
 
-      cp ../../../../pytuq/examples/ex_pcgsa.py
-      # replace Ishigami() with minimal python model
+      **Adapting the PyTUQ example script:**
 
-      16d15
-      < from ModelXBaseModel import HeatEquationModel
-      23,24c22
-      < myfunc = HeatEquationModel()
-      < myfunc._request_out_fields = [('output', 'max_temp')]
-      ---
-      > myfunc = Ishigami()
+      Copy the PyTUQ example script and replace the Ishigami test function with the HeatEquationModel wrapper. This allows PyTUQ to drive the C++ executable through Python subprocess calls.
 
    .. code-block:: bash
-      :caption: Run with Python wrapped bash
+      :caption: Copy PyTUQ example script
+
+      cp ../../../../pytuq/examples/ex_pcgsa.py .
+
+   **Modify ex_pcgsa.py:**
+
+   Add the import near the top of the file:
+
+   .. code-block:: python
+
+      from ModelXBaseModel import HeatEquationModel
+
+   Replace the model definition:
+
+   .. code-block:: python
+      :caption: Original (around line 23)
+
+      myfunc = Ishigami()
+
+   .. code-block:: python
+      :caption: Replacement
+
+      myfunc = HeatEquationModel()
+      myfunc._request_out_fields = [('output', 'max_temp')]
+
+   .. code-block:: bash
+      :caption: Run UQ analysis
 
       python ./ex_pcgsa.py
 
 PyAMReX + PyTUQ
 ~~~~~~~~~~~~~~~
 
-.. admonition:: Setup and Run
-   :class: dropdown
+.. dropdown:: Setup and Run
 
    **Prerequisites**: pyAMReX installed
 
    .. code-block:: bash
-      :caption: Use Case-2 directory
+      :caption: Navigate to Case-3 directory
 
       cd GuidedTutorials/HeatEquation_UQ/Case-3
 
-   .. code-block:: bash
-      :caption: Direct Python integration
+   .. note::
 
-      cp ../../../../pytuq/examples/ex_pcgsa.py
-      # replace Ishigami() with pyamrex model
+      **Using PyAMReX with PyTUQ:**
 
-      16d15
-      <       from HeatEquationModel import HeatEquationModel
-      23,24c22
-      < myfunc = HeatEquationModel()
-      < myfunc._request_out_fields = [('output', 'max_temp')]
-      ---
-      > myfunc = Ishigami()
+      For native PyAMReX applications, copy the PyTUQ example script and replace the Ishigami function with the PyAMReX-based HeatEquationModel. This enables direct Python-to-Python integration without subprocess overhead.
 
    .. code-block:: bash
-      :caption: Run
+      :caption: Copy PyTUQ example script
+
+      cp ../../../../pytuq/examples/ex_pcgsa.py .
+
+   **Modify ex_pcgsa.py:**
+
+   Add the import near the top of the file:
+
+   .. code-block:: python
+
+      from HeatEquationModel import HeatEquationModel
+
+   Replace the model definition:
+
+   .. code-block:: python
+      :caption: Original (around line 23)
+
+      myfunc = Ishigami()
+
+   .. code-block:: python
+      :caption: Replacement
+
+      myfunc = HeatEquationModel()
+      myfunc._request_out_fields = [('output', 'max_temp')]
+
+   .. code-block:: bash
+      :caption: Run UQ analysis
 
       python ./ex_pcgsa.py
 
@@ -135,8 +168,7 @@ Perlmutter Deployment (not implemented)
 C++ AMReX on Perlmutter
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. admonition:: Perlmutter Setup
-   :class: dropdown
+.. dropdown:: Perlmutter Setup
 
    .. code-block:: bash
       :caption: Virtual environment setup
