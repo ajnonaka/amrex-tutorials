@@ -1,8 +1,5 @@
 .. _pytuq_mathematical_details:
 
-Mathematical Details
-====================
-
 Parameter Sensitivity via Polynomial Chaos
 -------------------------------------------
 

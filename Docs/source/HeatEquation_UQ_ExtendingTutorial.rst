@@ -1,7 +1,9 @@
 .. _pytuq_extending_tutorial:
 
-Extending this tutorial to other applications
-==============================================
+Extending this approach from existing applications
+==================================================
+
+This section describes how HeatEquation_Simple and the pyamrex HeatEquation from HeatEquation_EX0_C can be modified step by step to use with pytuq to give a framework for making a similar extension for other AMReX codes.
 
 Identify / Add input parameters
 --------------------------------

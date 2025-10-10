@@ -203,9 +203,11 @@ C++ AMReX on Perlmutter
        <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
        for details.
 
+Customizing the Workflow
+------------------------
+
 .. toctree::
    :maxdepth: 1
-   :caption: Additional Topics
 
    HeatEquation_UQ_MathematicalDetails
    HeatEquation_UQ_ExtendingTutorial
