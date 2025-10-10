@@ -390,6 +390,118 @@ Output example: C++ Datalog
                amr.DataLog(0) << time << " " << max_temperature << " " << mean_temp << std::endl;
            }
 
+Extending to PyAMReX Applications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For PyAMReX applications, adapt your existing ``main.py`` to enable UQ parameter sweeps:
+
+**1. Modify main() function signature**
+
+Add UQ parameters as function arguments:
+
+.. code-block:: python
+   :caption: Original
+
+   def main(n_cell, max_grid_size, nsteps, plot_int, dt):
+
+.. code-block:: python
+   :caption: With UQ parameters
+
+   def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100,
+            plot_int: int = 100, dt: float = 1e-5, plot_files_output: bool = False,
+            verbose: int = 1, diffusion_coeff: float = 1.0, init_amplitude: float = 1.0,
+            init_width: float = 0.01) -> Tuple[amr.MultiFab, amr.Geometry]:
+
+**2. Use parameters in physics**
+
+Replace hardcoded values with function parameters:
+
+.. code-block:: python
+   :caption: Original initial condition (main.py:117-118)
+
+   rsquared = ((x[:, xp.newaxis, xp.newaxis] - 0.5)**2
+             + (y[xp.newaxis, :, xp.newaxis] - 0.5)**2
+             + (x[xp.newaxis, xp.newaxis, :] - 0.5)**2) / 0.01
+   phiOld[:, ngz:-ngz, ngy:-ngy, ngx:-ngx] = 1. + xp.exp(-rsquared)
+
+.. code-block:: python
+   :caption: Parameterized
+
+   rsquared = ((x[:, xp.newaxis, xp.newaxis] - 0.5)**2
+             + (y[xp.newaxis, :, xp.newaxis] - 0.5)**2
+             + (x[xp.newaxis, xp.newaxis, :] - 0.5)**2) / init_width
+   phiOld[:, ngz:-ngz, ngy:-ngy, ngx:-ngx] = 1. + init_amplitude * xp.exp(-rsquared)
+
+.. code-block:: python
+   :caption: Original evolution (main.py:143-144)
+
+   phiNew[:, ngz:-ngz,ngy:-ngy,ngx:-ngx] = (
+       phiOld[:, ngz:-ngz,ngy:-ngy,ngx:-ngx]
+       + dt*((phiOld[:, ngz:-ngz, ngy:-ngy, ngx+1:hix-ngx+1] - ... ) / dx[0]**2))
+
+.. code-block:: python
+   :caption: With diffusion coefficient
+
+   phiNew[:, ngz:-ngz,ngy:-ngy,ngx:-ngx] = (
+       phiOld[:, ngz:-ngz,ngy:-ngy,ngx:-ngx]
+       + dt * diffusion_coeff * ((phiOld[:, ngz:-ngz, ngy:-ngy, ngx+1:hix-ngx+1] - ... ) / dx[0]**2))
+
+**3. Return simulation state**
+
+Modify the main function to return MultiFab and Geometry:
+
+.. code-block:: python
+
+   return phi_new, geom
+
+**4. Create PyTUQ model wrapper**
+
+Create a ``HeatEquationModel.py`` that inherits from ``AMReXBaseModel``:
+
+.. code-block:: python
+
+   from AMReXBaseModel import AMReXBaseModel
+   import amrex.space3d as amr
+   import numpy as np
+
+   class HeatEquationModel(AMReXBaseModel):
+       _param_fields = [
+           ('param', 'diffusion_coeff'),
+           ('param', 'init_amplitude'),
+           ('param', 'init_width'),
+       ]
+
+       _output_fields = [
+           ('output', 'max_temp'),
+           ('output', 'mean_temp'),
+           ('output', 'std_temp'),
+           ('output', 'total_energy'),
+       ]
+
+       def evolve(self, param_set: np.ndarray):
+           """Run simulation with given parameters."""
+           from main import main
+           phi_new, geom = main(
+               diffusion_coeff=float(param_set[0]),
+               init_amplitude=float(param_set[1]),
+               init_width=float(param_set[2]),
+               plot_files_output=False,
+               verbose=0
+           )
+           varnames = amr.Vector_string(['phi'])
+           return phi_new, varnames, geom
+
+       def postprocess(self, sim_state) -> np.ndarray:
+           """Extract quantities of interest."""
+           multifab, varnames, geom = sim_state
+           max_val = multifab.max(comp=0, local=False)
+           sum_val = multifab.sum(comp=0, local=False)
+           mean_val = sum_val / multifab.box_array().numPts
+           # Calculate std dev...
+           return np.array([max_val, mean_val, std_val, sum_val])
+
+See ``Case-3/HeatEquationModel.py`` for the complete implementation.
+
 Summary
 -------
 
