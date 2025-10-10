@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --account=mp111_g
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH -c 32
-#SBATCH --gpus-per-task=1
+#SBATCH --ntasks-per-node=1
+#SBATCH -c 128
+#SBATCH --gpus-per-task=4
 #SBATCH --gpu-bind=none
 #SBATCH --time=00:10:00
 #SBATCH --constraint=gpu&hbm40g
@@ -12,7 +12,7 @@
 export MPICH_GPU_SUPPORT_ENABLED=1 
 export SLURM_CPU_BIND="cores"
 
-# NOTE sbatch choices here are based on https://github.com/WeiqunZhang/amrex-scaling/blob/824551bc0189f374317bf8602bb81799deb970a2/fft/perlmutter/2025-02-06/run-16.sh
+# NOTE sbatch choices are altered here to make gnu parallel work with the ones in https://github.com/WeiqunZhang/amrex-scaling/blob/824551bc0189f374317bf8602bb81799deb970a2/fft/perlmutter/2025-02-06/run-16.sh
 # NOTE this example is only meant for one node
 
 #SDIR=`dirname "$0"`
