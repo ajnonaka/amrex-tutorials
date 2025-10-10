@@ -54,6 +54,7 @@ int main (int argc, char* argv[])
     const int timeprecision = 13;
     int datalog_int = -1;      // Interval for regular output (<=0 means no regular output)
     bool datalog_final = true; // Write datalog at final step
+    std::string datalog_filename = "datalog.txt";
 
     // **********************************
     // READ PARAMETER VALUES FROM INPUT DATA
@@ -286,7 +287,7 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         }
 
         if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
-            std::ofstream datalog("datalog.txt", std::ios::app);
+            std::ofstream datalog(datalog_filename, std::ios::app);
 
             // Calculate temperature statistics
             amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();

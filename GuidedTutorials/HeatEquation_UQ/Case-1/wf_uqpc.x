@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 #SDIR=`dirname "$0"`
-KLPC = $(pwd)/../../../../
+export KLPC=$(pwd)/../../../../pytuq
 
 #First-order Polynomial Chaos (PC).
 ## Given mean and standard deviation of each normal random parameter
@@ -19,16 +19,18 @@ echo "std_temp" >> outnames.txt
 echo "total_energy" >> outnames.txt
 
 PCTYPE="HG"
-ORDER=3
+ORDER=1
 
 ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
-${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE
+${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE 5
+
+#cp qsam.txt ptrain.txt
 
 parallel --jobs 1 --colsep ' ' \
   './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
     datalog=datalog_{#}.txt \
-    plot_int = -1 \
+    plot_int = -1 > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \
   :::: qsam.txt > ysam.txt
 
-${KLPC}/apps/pc_fit.py $PCTYPE $ORDER
+${KLPC}/apps/pc_fit.py --pctype $PCTYPE --order $ORDER --xdata "qsam.txt" --ydata "ysam.txt"
