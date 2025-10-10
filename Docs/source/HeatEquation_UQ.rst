@@ -502,6 +502,83 @@ Create a ``HeatEquationModel.py`` that inherits from ``AMReXBaseModel``:
 
 See ``Case-3/HeatEquationModel.py`` for the complete implementation.
 
+Configure PyTUQ Parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+PyTUQ requires configuration files specifying uncertain parameters and output quantities of interest. For BASH-driven workflows (Case-1), create these files directly:
+
+**Parameter Configuration (param_margpc.txt)**
+
+Specify mean and standard deviation for each uncertain parameter (one per line):
+
+.. code-block:: bash
+
+   echo "1 0.25 " > param_margpc.txt        # diffusion_coeff: mean=1.0, std=0.25
+   echo "1 0.25" >> param_margpc.txt        # init_amplitude: mean=1.0, std=0.25
+   echo "0.01 0.0025" >> param_margpc.txt   # init_width: mean=0.01, std=0.0025
+
+**Parameter Names (pnames.txt)**
+
+List parameter names matching your AMReX ParmParse inputs:
+
+.. code-block:: bash
+
+   echo "diffusion_coeff" > pnames.txt
+   echo "init_amplitude" >> pnames.txt
+   echo "init_width" >> pnames.txt
+
+**Output Names (outnames.txt)**
+
+Specify quantities of interest to extract from simulation outputs:
+
+.. code-block:: bash
+
+   echo "max_temp" > outnames.txt
+   echo "mean_temp" >> outnames.txt
+   echo "std_temp" >> outnames.txt
+   echo "total_energy" >> outnames.txt
+
+**Polynomial Chaos Configuration**
+
+Set the polynomial chaos type and order:
+
+.. code-block:: bash
+
+   PCTYPE="HG"    # Hermite-Gaussian for normal distributions
+   ORDER=1        # First-order polynomial chaos
+   NSAM=111       # Number of samples (depends on dimensionality and order)
+
+.. note::
+
+   **Polynomial Chaos Types:**
+
+   - ``HG`` (Hermite-Gaussian): For normal/Gaussian distributions
+   - ``LU`` (Legendre-Uniform): For uniform distributions
+   - ``LG`` (Laguerre-Gamma): For gamma distributions
+
+   **Sample Count:** For ``d`` dimensions and order ``p``, you need at least ``(p+d)!/(p!*d!)`` samples. For 3D with order 1: minimum 4 samples, recommended 111+.
+
+**PyTUQ Workflow Steps**
+
+The workflow consists of three stages:
+
+1. **Prepare PC basis** - Use ``pc_prep.py`` to initialize polynomial chaos basis functions based on parameter distributions
+
+2. **Sample parameter space** - Use ``pc_sam.py`` to generate parameter samples (creates ``qsam.txt``)
+
+3. **Fit surrogate model** - Use ``pc_fit.py`` to construct polynomial chaos expansion from simulation outputs
+
+.. note::
+
+   **Case-2 Flexibility:**
+
+   Case-2 (Python-wrapped C++) supports both approaches:
+
+   - **BASH file configuration** (like Case-1): Use text files (``param_margpc.txt``, ``pnames.txt``, ``outnames.txt``) with a ``model.x`` wrapper script that specifies which C++ executable and inputs file to use
+   - **Python metadata**: Define parameter distributions in the model class's ``_get_field_info()`` method
+
+   Case-3 (native PyAMReX) requires Python metadata since there's no separate executable to wrap.
+
 Summary
 -------
 
