@@ -48,7 +48,7 @@ C++ AMReX + PyTUQ (BASH driven)
       ./wf_uqpc.x
 
 C++ AMReX + PyTUQ (python driven)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. admonition:: Build and Run
    :class: dropdown
@@ -89,23 +89,23 @@ PyAMReX + PyTUQ
    **Prerequisites**: pyAMReX installed
 
    .. code-block:: bash
-       :caption: Use Case-2 directory
+      :caption: Use Case-2 directory
 
-        cd GuidedTutorials/HeatEquation_UQ/Case-3
+      cd GuidedTutorials/HeatEquation_UQ/Case-3
 
-    .. code-block:: bash
-       :caption: Direct Python integration
+   .. code-block:: bash
+      :caption: Direct Python integration
 
-       cp ../../../../pytuq/examples/ex_pcgsa.py
-       # replace Ishigami() with pyamrex model
+      cp ../../../../pytuq/examples/ex_pcgsa.py
+      # replace Ishigami() with pyamrex model
 
-       16d15
-       <       from HeatEquationModel import HeatEquationModel
-       23,24c22
-       < myfunc = HeatEquationModel()
-       < myfunc._request_out_fields = [('output', 'max_temp')]
-       ---
-       > myfunc = Ishigami()
+      16d15
+      <       from HeatEquationModel import HeatEquationModel
+      23,24c22
+      < myfunc = HeatEquationModel()
+      < myfunc._request_out_fields = [('output', 'max_temp')]
+      ---
+      > myfunc = Ishigami()
 
    .. code-block:: bash
       :caption: Run
@@ -164,7 +164,10 @@ C++ AMReX on Perlmutter
        for details.
 
 Extending this tutorial to other applications
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------
+
+Identify / Add input parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Implementation Steps:**
 
@@ -202,8 +205,8 @@ Extending this tutorial to other applications
 
 The simplest output extraction method is described here:
 
-C++ with Datalog Output
-~~~~~~~~~~~~~~~~~~~~~~~
+Output example: C++ Datalog
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. admonition:: When to use
    :class: tip
