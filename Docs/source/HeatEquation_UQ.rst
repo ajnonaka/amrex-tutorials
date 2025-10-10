@@ -223,6 +223,18 @@ C++ AMReX on Perlmutter
        <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
        for details.
 
+.. note::
+
+   **Advanced Workflow Management:**
+
+   For more complex UQ workflows requiring sophisticated task management, consider these strategies:
+
+   - **SLURM Job Arrays**: For running many similar parameter sweep jobs - `NERSC Job Arrays Documentation <https://docs.nersc.gov/jobs/examples/#job-arrays>`_
+   - **Hydra Submitit Launcher**: For configuration-driven HPC job submission - `Hydra Submitit Usage <https://hydra.cc/docs/plugins/submitit_launcher/#usage>`_
+   - **libEnsemble**: For dynamic ensemble management and adaptive sampling - `libEnsemble Platforms Guide <https://libensemble.readthedocs.io/en/main/platforms/platforms_index.html>`_
+
+   See the `NERSC Workflow Documentation <https://docs.nersc.gov/jobs/workflow/>`_ for the latest recommendations on workflow management strategies.
+
 Customizing the Workflow
 ------------------------
 
@@ -244,11 +256,21 @@ Summary
 Additional Resources
 --------------------
 
+**PyTUQ Resources:**
+
 - `PyTUQ Documentation <https://sandialabs.github.io/pytuq>`_
 - `PyTUQ Examples directory <https://github.com/sandialabs/pytuq/tree/main/examples>`_
+- eebaill, ksargsyan, & Bert Debusschere. (2025). sandialabs/pytuq: v1.0.0z (v1.0.0z). Zenodo. https://doi.org/10.5281/zenodo.17110054
+
+**AMReX Resources:**
+
 - `AMReX Documentation <https://amrex-codes.github.io/amrex/docs_html/>`_
 - `pyAMReX Documentation <https://pyamrex.readthedocs.io>`_
 - :ref:`_guided_heat` - Base tutorial this builds upon
+
+**Uncertainty Quantification Theory:**
+
+- Ghanem, Roger, David Higdon, and Houman Owhadi, eds. *Handbook of Uncertainty Quantification*. Vol. 6. New York: Springer, 2017. (For workflow, plotting, and analysis specifics)
 
 .. seealso::
 
