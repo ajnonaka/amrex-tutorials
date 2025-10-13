@@ -29,20 +29,51 @@ Located in ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ``, this example ana
 Installation
 ------------
 
-.. code-block:: bash
-   :caption: Quick install
+Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/pytuq/blob/main/README.md>`_:
 
+.. note::
+
+   For NERSC users, consider placing your conda environment in ``/global/common/software``
+   for better performance and persistence. Also, remember to ``module load conda`` before creating environments and installing. See the `NERSC Python documentation
+   <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
+   for details.
+
+.. code-block:: bash
+   :caption: Pytuq installation script
+
+   #!/bin/bash
+
+   # For NERSC: module load conda
+
+   # 1. Clone repositories
    git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
+
+   # 2. Setup conda environment (optional, you can add to an existing env)
+   # Create conda environment (use -y for non-interactive)
+   conda create -y --name pytuq_integration python=3.11 --no-default-packages
+
+   # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
+   # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
+
+   conda activate pytuq_integration
+   # For NERSC: conda activate /global/common/software/myproject/$USER/pytuq_integration
+
+   # 3. Install PyTUQ
    cd pytuq
-   echo "dill" >> requirements.txt
-   pip install -r requirements.txt
-   pip install .
+   python -m pip install -r requirements.txt
+   python -m pip install .
+   conda install -y dill
+   cd ../
+
+   # 4. Verify installation
+   conda list | grep pytuq    # Should show pytuq 1.0.0z
 
 .. note::
 
    **Comprehensive Installation:**
 
-   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh``
+   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh`` `example_detailed_install.sh <../../../GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh>`_
+
 
 Examples
 --------
