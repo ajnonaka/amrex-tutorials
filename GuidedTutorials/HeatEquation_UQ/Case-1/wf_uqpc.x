@@ -12,7 +12,7 @@ echo "0.01 0.0025" >> param_margpc.txt
 
 PCTYPE="HG"
 ORDER=1
-NSAM=10
+NSAM=20
 
 # generate pcf.txt (re-ordering of parame_margpc.txt)
 ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
