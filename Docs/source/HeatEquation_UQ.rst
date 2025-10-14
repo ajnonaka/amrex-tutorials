@@ -92,7 +92,7 @@ C++ AMReX + PyTUQ (BASH driven)
    .. code-block:: bash
       :caption: Build C++ example
 
-      cd GuidedTutorials/HeatEquation_UQ/Case-1
+      cd amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1
       make -j4
 
    .. code-block:: bash
@@ -102,57 +102,60 @@ C++ AMReX + PyTUQ (BASH driven)
 
 .. dropdown:: Understanding GNU Parallel Workflow Pattern
 
-   After PyTUQ scripts generate an input parameter file (``ptrain.txt``), the Case-1 workflow uses GNU Parallel to run multiple simulations efficiently and collect outputs into a results file (``ytrain.txt``) that PyTUQ can use for surrogate model fitting. Here's how the pattern works:
+   First, this script generate
+
+   After PyTUQ scripts generate an input parameter file (``psam.txt``), the Case-1 workflow uses GNU Parallel to run multiple simulations efficiently and collect outputs into a results file (``ysam.txt``) that PyTUQ can use for surrogate model fitting. Here's how the pattern works:
 
    .. code-block:: bash
-      :caption: Example GNU Parallel command
+      :caption: Example GNU Parallel command (``wf_uqpc.x``)
 
-      parallel --jobs 6 --colsep ' ' -k \
-        './main3d.gnu.ex inputs param1={1} param2={2} param3={3} \
-          amr.datalog=datalog_{#}.txt \
-          amr.plot_file=plt_{#} \
-          amr.check_file=chk_{#} \
-          && tail -1 datalog_{#}.txt' \
-        :::: ptrain.txt > ytrain.txt
+      parallel --jobs 4 --keep-order --colsep ' ' \
+        './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+        datalog=datalog_{#}.txt \
+        > /dev/null 2>&1 \
+        && tail -1 datalog_{#}.txt' \
+      :::: psam.txt > ysam.txt
 
    **Understanding the placeholders:**
 
-   - ``{1}``, ``{2}``, ``{3}`` - **Column numbers** from the input file (``ptrain.txt``)
+   - ``{1}``, ``{2}``, ``{3}`` - **Column numbers** from the input file (``psam.txt``)
    - ``{#}`` - **Line number** from the input file (used for unique file naming)
 
    **How it works:**
 
-   1. **Input file (ptrain.txt)** - Space/tab-separated parameter samples (one row per simulation):
+   1. **Input file (psam.txt)** - Space/tab-separated parameter samples (one row per simulation):
 
       .. code-block:: text
 
-         1.0 1.0 0.01
-         0.75 1.25 0.0125
-         1.25 0.75 0.0075
+         1.252744433619e+00 1.189332992765e+00 1.107922825308e-02
+         1.153626977108e+00 8.912357108037e-01 8.456030290466e-03
+         3.265959848625e-01 7.285478940917e-01 7.687549687284e-03
 
    2. **For each row**, GNU Parallel:
 
-      - Substitutes ``{1}`` with column 1 (e.g., ``1.0``) → ``param1=1.0``
-      - Substitutes ``{2}`` with column 2 (e.g., ``1.0``) → ``param2=1.0``
-      - Substitutes ``{3}`` with column 3 (e.g., ``0.01``) → ``param3=0.01``
-      - Substitutes ``{#}`` with the line number (e.g., ``1``) → ``datalog_1.txt``, ``plt_1``, ``chk_1``
+      - Substitutes ``{1}`` with column 1
+      - Substitutes ``{2}`` with column 2
+      - Substitutes ``{3}`` with column 3
+      - Substitutes ``{#}`` with the line number (e.g., ``1``) → ``datalog_1.txt``
 
-   3. **After simulation**, extracts output with ``tail -1 datalog_{#}.txt``
+   3. **After simulation**, extracts output from final line of simulation standard output with ``tail -1 datalog_{#}.txt``
 
-   4. **Output file (ytrain.txt)** - Collected results (one row per simulation):
+   4. **Output file (ysam.txt)** - Collected results (one row per simulation):
 
       .. code-block:: text
 
-         1.5801622094
-         1.6234567890
-         1.4567890123
+         1.106358248808103    0.007723115686160915    0.0562709919848521       253.0710548041209
+         0.8113473575862051   0.003858932516788893    0.03451729840856418      126.4495007101384
+         0.6608518630828316   0.002734417468982227    0.02636512039600031      89.60139162360962
+         1.082407360836961    0.01225809407946649     0.06904148772504816      401.6732267959578
+         1.279158901768254    0.006549137494533053    0.05630882962684351      214.6021374208591
 
    **Key options:**
 
-   - ``--jobs 6`` - Run 6 simulations in parallel
+   - ``--jobs 4`` - Run 4 simulations in parallel
    - ``--colsep ' '`` - Columns separated by spaces (use ``'\t'`` for tabs)
-   - ``-k`` - Keep output order matching input order
-   - ``::::`` - Read input from file (``ptrain.txt``)
+   - ``-k`` - Keep output order matching input order (important for parallel jobs)
+   - ``::::`` - Read input from file (``psam.txt``)
 
    **Output extraction alternatives:**
 
