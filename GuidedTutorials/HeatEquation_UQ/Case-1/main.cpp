@@ -199,7 +199,7 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
 
             // Set initial temperature profile
-            phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
+            phiOld(i,j,k) = init_amplitude * std::exp(-rsquared);
         });
     }
 
