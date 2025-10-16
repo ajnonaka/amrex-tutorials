@@ -9,6 +9,7 @@
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_ParmParse.H>
 
+
 int main (int argc, char* argv[])
 {
     amrex::Initialize(argc,argv);
@@ -53,7 +54,6 @@ int main (int argc, char* argv[])
     const int datprecision = 16;
     const int timeprecision = 13;
     int datalog_int = -1;      // Interval for regular output (<=0 means no regular output)
-    bool datalog_final = true; // Write datalog at final step
     std::string datalog_filename = "datalog.txt";
 
     // **********************************
@@ -82,6 +82,9 @@ int main (int argc, char* argv[])
         plot_int = -1;
         pp.query("plot_int",plot_int);
 
+        // time step
+        pp.get("dt",dt);
+
         // Default datalog_int to -1, allow us to set it to something else in the inputs file
         //  If datalog_int < 0 then no plot files will be written
         datalog_int = -1;
@@ -89,9 +92,6 @@ int main (int argc, char* argv[])
 
         datalog_filename = "datalog.txt";
         pp.query("datalog",datalog_filename);
-
-        // time step
-        pp.get("dt",dt);
 
         // **********************************
         // READ PHYSICS PARAMETERS
@@ -186,27 +186,25 @@ int main (int argc, char* argv[])
         // - width: controls spread of initial hot spot
         //   - smaller width = more concentrated
         //   - larger width = more spread out
-
-amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            // Calculate physical coordinates of cell center
+
+            // **********************************
+            // SET VALUES FOR EACH CELL
+            // **********************************
+
             amrex::Real x = (i+0.5) * dx[0];
             amrex::Real y = (j+0.5) * dx[1];
             amrex::Real z = (k+0.5) * dx[2];
-
-            // Calculate squared distance from domain center (0.5, 0.5, 0.5)
-            // Divide by init_width (which is the variance, not standard deviation)
-            amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
-
-            // Set initial temperature profile
-            phiOld(i,j,k) = init_amplitude * std::exp(-rsquared);
+            amrex::Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/init_width;
+            phiOld(i,j,k) = 1. + init_amplitude * std::exp(-rsquared);
         });
     }
 
     // **********************************
     // WRITE DATALOG FILE
     // **********************************
-    if (amrex::ParallelDescriptor::IOProcessor() && (datalog_int>0 || datalog_final)) {
+    if (amrex::ParallelDescriptor::IOProcessor()) {
         std::ofstream datalog(datalog_filename);  // truncate mode to start fresh
         datalog << "#" << std::setw(datwidth-1) << "     max_temp";
         datalog << std::setw(datwidth) << "    mean_temp";
@@ -247,17 +245,19 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
             const amrex::Array4<amrex::Real>& phiNew = phi_new.array(mfi);
 
-            // advance the data by dt using heat equation with diffusion coefficient
+            // advance the data by dt
             amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                // Calculate the discrete Laplacian using finite differences
-                amrex::Real laplacian =
-                    (phiOld(i+1,j,k) - 2.*phiOld(i,j,k) + phiOld(i-1,j,k)) / (dx[0]*dx[0])
-                   +(phiOld(i,j+1,k) - 2.*phiOld(i,j,k) + phiOld(i,j-1,k)) / (dx[1]*dx[1])
-                   +(phiOld(i,j,k+1) - 2.*phiOld(i,j,k) + phiOld(i,j,k-1)) / (dx[2]*dx[2]);
 
-                // Apply heat equation using diffusion_coeff - matches Python version
-                phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff * laplacian;
+                // **********************************
+                // EVOLVE VALUES FOR EACH CELL
+                // **********************************
+
+                phiNew(i,j,k) = phiOld(i,j,k) + dt * diffusion_coeff *
+                    ( (phiOld(i+1,j,k) - 2.*phiOld(i,j,k) + phiOld(i-1,j,k)) / (dx[0]*dx[0])
+                     +(phiOld(i,j+1,k) - 2.*phiOld(i,j,k) + phiOld(i,j-1,k)) / (dx[1]*dx[1])
+                     +(phiOld(i,j,k+1) - 2.*phiOld(i,j,k) + phiOld(i,j,k-1)) / (dx[2]*dx[2])
+                        );
             });
         }
 
@@ -280,7 +280,7 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
 
         // Check if we should write datalog
         bool write_datalog = false;
-        if (datalog_final && step == nsteps) {
+        if (step == nsteps) {
             write_datalog = true;  // Write final step
         } else if (datalog_int > 0 && step % datalog_int == 0) {
             write_datalog = true;  // Write every datalog_int steps
@@ -319,6 +319,7 @@ amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             WriteSingleLevelPlotfile(pltfile, phi_new, {"phi"}, geom, time, step);
         }
     }
+
 
     }
     amrex::Finalize();
