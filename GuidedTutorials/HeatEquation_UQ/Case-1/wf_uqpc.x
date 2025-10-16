@@ -17,8 +17,8 @@ NSAM=20
 # generate pcf.txt (re-ordering of parame_margpc.txt)
 ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
 
-# generate qsam.txt (random numbers drawn from polynomial chaos basis)
-# generate qsam.txt (the randomly varying inputs parameters
+# generate qsam.txt (random numbers drawn from polynomial chaos basis) and
+# generate psam.txt (the randomly varying inputs parameters)
 ${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE $NSAM
 
 # run all the jobs with psam.txt as the parameters, and log the final outputs in ysam.txt
