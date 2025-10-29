@@ -30,4 +30,4 @@ parallel --jobs 4 --keep-order --colsep ' ' \
     && tail -1 datalog_{#}.txt' \
   :::: psam.txt > ysam.txt
 
-${KLPC}/apps/pc_fit.py --pctype $PCTYPE --order $ORDER --xdata "qsam.txt" --ydata "ysam.txt"
+${KLPC}/apps/pc_fit.py --pctype $PCTYPE --order $ORDER --xdata "psam.txt" --ydata "ysam.txt"
