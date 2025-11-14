@@ -19,6 +19,10 @@ int main (int argc, char* argv[])
 void main_main ()
 {
 
+    if (AMREX_SPACEDIM != 2) {
+        amrex::Abort("Only 2D supported; recompile with DIM=2");
+    }
+    
     // **********************************
     // SIMULATION PARAMETERS
 
@@ -40,17 +44,15 @@ void main_main ()
     // use adaptive time step (dt used to set output times)
     bool adapt_dt = false;
 
-    // use MRI
-    bool use_MRI = false;
-    Real fast_dt_ratio = 0.1;
-
     // adaptive time step relative and absolute tolerances
     Real reltol = 1.0e-4;
     Real abstol = 1.0e-9;
 
-    // Reaction and Diffusion Coefficients
-    Real reaction_coef = 0.0;
-    Real diffusion_coef = 1.0;
+    // Advection and Diffusion Coefficients
+    Real advCoeffx = 1.0;
+    Real advCoeffy = 1.0;
+    Real diffCoeffx = 1.0;
+    Real diffCoeffy = 1.0;
 
     // inputs parameters
     {
@@ -81,16 +83,14 @@ void main_main ()
         // use adaptive step sizes
         pp.query("adapt_dt",adapt_dt);
 
-        // use MRI
-        pp.query("use_MRI",use_MRI);
-        pp.query("fast_dt_ratio",fast_dt_ratio);
-
         // adaptive step tolerances
         pp.query("reltol",reltol);
         pp.query("abstol",abstol);
 
-        pp.query("reaction_coef",reaction_coef);
-        pp.query("diffusion_coef",diffusion_coef);
+        pp.query("advCoeffx",advCoeffx);
+        pp.query("advCoeffx",advCoeffy);
+        pp.query("diffCoeffx",diffCoeffx);
+        pp.query("diffCoeffx",diffCoeffy);
     }
 
     // **********************************
@@ -117,7 +117,7 @@ void main_main ()
     ba.maxSize(max_grid_size);
 
     // This defines the physical box, [0,1] in each direction.
-    RealBox real_box({AMREX_D_DECL( 0., 0., 0.)},
+    RealBox real_box({AMREX_D_DECL(-1.,-1.,-1.)},
                      {AMREX_D_DECL( 1., 1., 1.)});
 
     // periodic in all direction
@@ -128,6 +128,8 @@ void main_main ()
 
     // extract dx from the geometry object
     GpuArray<Real,AMREX_SPACEDIM> dx = geom.CellSizeArray();
+    GpuArray<Real,AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
+    GpuArray<Real,AMREX_SPACEDIM> prob_hi = geom.ProbHiArray();
 
     // Nghost = number of ghost cells for each array
     int Nghost = 1;
@@ -151,21 +153,18 @@ void main_main ()
     for (MFIter mfi(phi); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.validbox();
-
         const Array4<Real>& phi_array = phi.array(mfi);
 
-        // set phi = 1 + e^(-(r-0.5)^2)
+        Real sigma = 0.1;
+        Real a = 1.0/(sigma*sqrt(2*M_PI));
+        Real b = -0.5/(sigma*sigma);
+        
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            Real x = (i+0.5) * dx[0];
-            Real y = (j+0.5) * dx[1];
-#if (AMREX_SPACEDIM == 2)
-            Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5))/0.01;
-#elif (AMREX_SPACEDIM == 3)
-            Real z= (k+0.5) * dx[2];
-            Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/0.01;
-#endif
-            phi_array(i,j,k) = 1. + std::exp(-rsquared);
+            Real y = prob_lo[1] + (((Real) j) + 0.5) * dx[1];
+            Real x = prob_lo[0] + (((Real) i) + 0.5) * dx[0];
+            Real r = x * x + y * y;
+            phi_array(i,j,k) = a * std::exp(b * r);
         });
     }
 
@@ -176,35 +175,6 @@ void main_main ()
         const std::string& pltfile = amrex::Concatenate("plt",step,5);
         WriteSingleLevelPlotfile(pltfile, phi, {"phi"}, geom, time, 0);
     }
-
-    auto rhs_fast_function = [&](MultiFab& S_rhs, MultiFab& S_data, const Real /* time */) {
-
-        // fill periodic ghost cells
-        S_data.FillBoundary(geom.periodicity());
-
-        // loop over boxes
-        auto& phi_data = S_data;
-        auto& phi_rhs  = S_rhs;
-
-        for ( MFIter mfi(phi_data); mfi.isValid(); ++mfi )
-        {
-            const Box& bx = mfi.validbox();
-
-            const Array4<const Real>& phi_array = phi_data.array(mfi);
-            const Array4<Real>& phi_rhs_array = phi_rhs.array(mfi);
-
-            // fill the right-hand-side for phi
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                phi_rhs_array(i,j,k) = diffusion_coef*( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0])
-                                                       +(phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1])
-#if (AMREX_SPACEDIM == 3)
-                                                       +(phi_array(i,j,k+1) - 2.*phi_array(i,j,k) + phi_array(i,j,k-1)) / (dx[2]*dx[2])
-#endif
-                    );
-            });
-        }
-    };
 
     auto rhs_function = [&](MultiFab& S_rhs, MultiFab& S_data, const Real /* time */) {
 
@@ -225,28 +195,16 @@ void main_main ()
             // fill the right-hand-side for phi
             amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                if (use_MRI) {
-                    phi_rhs_array(i,j,k) = -1.*reaction_coef*phi_array(i,j,k);
-                } else {
-                    phi_rhs_array(i,j,k) = diffusion_coef*( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0])
-                                                           +(phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1])
-#if (AMREX_SPACEDIM == 3)
-                                                           +(phi_array(i,j,k+1) - 2.*phi_array(i,j,k) + phi_array(i,j,k-1)) / (dx[2]*dx[2])
-#endif
-                        ) - 1.*reaction_coef*phi_array(i,j,k);
-                }
+                phi_rhs_array(i,j,k) = diffCoeffx * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0]) )
+                                     + diffCoeffy * ( (phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1]) );
             });
         }
     };
 
     TimeIntegrator<MultiFab> integrator(phi, time);
     integrator.set_rhs(rhs_function);
-    if (use_MRI) {
-        integrator.set_fast_rhs(rhs_fast_function);
-        integrator.set_fast_time_step(fast_dt_ratio*dt);
-    }
 
-    if (adapt_dt && !use_MRI) {
+    if (adapt_dt) {
         integrator.set_adaptive_step();
         integrator.set_tolerances(reltol, abstol);
     } else {
