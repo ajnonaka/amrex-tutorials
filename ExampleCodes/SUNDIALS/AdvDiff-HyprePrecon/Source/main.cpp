@@ -181,24 +181,7 @@ void main_main ()
         // fill periodic ghost cells
         S_data.FillBoundary(geom.periodicity());
 
-        // loop over boxes
-        auto& phi_data = S_data;
-        auto& phi_rhs  = S_rhs;
-
-        for ( MFIter mfi(phi_data); mfi.isValid(); ++mfi )
-        {
-            const Box& bx = mfi.validbox();
-
-            const Array4<const Real>& phi_array = phi_data.array(mfi);
-            const Array4<Real>& phi_rhs_array = phi_rhs.array(mfi);
-
-            // fill the right-hand-side for phi
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                phi_rhs_array(i,j,k) = diffCoeffx * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0]) )
-                                     + diffCoeffy * ( (phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1]) );
-            });
-        }
+        ComputeDiffusion(S_rhs, S_data, diffCoeffx, diffCoeffy, dx);
     };
 
     TimeIntegrator<MultiFab> integrator(phi, time);
@@ -240,4 +223,29 @@ void main_main ()
     Real evolution_stop_time = ParallelDescriptor::second() - evolution_start_time;
     ParallelDescriptor::ReduceRealMax(evolution_stop_time);
     amrex::Print() << "Total evolution time = " << evolution_stop_time << " seconds\n";
+}
+
+void ComputeDiffusion(MultiFab& S_rhs,
+                      MultiFab& S_data,
+                      const Real& Dx,
+                      const Real& Dy,
+                      const GpuArray<Real,AMREX_SPACEDIM> dx) {
+
+    auto& phi_data = S_data;
+    auto& phi_rhs  = S_rhs;
+
+    for ( MFIter mfi(phi_data); mfi.isValid(); ++mfi )
+    {
+        const Box& bx = mfi.validbox();
+
+        const Array4<const Real>& phi_array = phi_data.array(mfi);
+        const Array4<Real>& phi_rhs_array = phi_rhs.array(mfi);
+
+        // fill the right-hand-side for phi
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            phi_rhs_array(i,j,k) = Dx * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0]) )
+                                 + Dy * ( (phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1]) );
+        });
+    }
 }
