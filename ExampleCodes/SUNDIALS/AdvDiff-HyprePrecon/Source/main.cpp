@@ -180,8 +180,9 @@ void main_main ()
 
         // fill periodic ghost cells
         S_data.FillBoundary(geom.periodicity());
-
+        
         ComputeDiffusion(S_rhs, S_data, diffCoeffx, diffCoeffy, dx);
+        ComputeAdvection(S_rhs, S_data, advCoeffx, advCoeffy, dx);
     };
 
     TimeIntegrator<MultiFab> integrator(phi, time);
@@ -231,21 +232,75 @@ void ComputeDiffusion(MultiFab& S_rhs,
                       const Real& Dy,
                       const GpuArray<Real,AMREX_SPACEDIM> dx) {
 
-    auto& phi_data = S_data;
-    auto& phi_rhs  = S_rhs;
-
-    for ( MFIter mfi(phi_data); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(S_data,TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        const Box& bx = mfi.validbox();
+        const Box& bx = mfi.tilebox();
 
-        const Array4<const Real>& phi_array = phi_data.array(mfi);
-        const Array4<Real>& phi_rhs_array = phi_rhs.array(mfi);
+        const Array4<const Real>& phi_array = S_data.array(mfi);
+        const Array4<      Real>& rhs_array = S_rhs.array(mfi);
 
         // fill the right-hand-side for phi
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            phi_rhs_array(i,j,k) = Dx * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0]) )
-                                 + Dy * ( (phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1]) );
+            rhs_array(i,j,k) += Dx * ( (phi_array(i+1,j,k) - 2.*phi_array(i,j,k) + phi_array(i-1,j,k)) / (dx[0]*dx[0]) )
+                              + Dy * ( (phi_array(i,j+1,k) - 2.*phi_array(i,j,k) + phi_array(i,j-1,k)) / (dx[1]*dx[1]) );
         });
+    }
+}
+
+
+void ComputeAdvection(MultiFab& S_rhs,
+                      MultiFab& S_data,
+                      const Real& Ax,
+                      const Real& Ay,
+                      const GpuArray<Real,AMREX_SPACEDIM> dx) {
+
+    Real dxInv = 1.0 / dx[0];
+    Real dyInv = 1.0 / dx[1];
+    Real sideCoeffx = Ax * dxInv;
+    Real sideCoeffy = Ay * dyInv;
+
+    for (MFIter mfi(S_data,TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+
+        const Array4<const Real>& phi_array = S_data.array(mfi);
+        const Array4<      Real>& rhs_array = S_rhs.array(mfi);
+
+        // x-direction
+        if (Ax > 0)
+        {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                rhs_array(i,j,k) -= sideCoeffx *
+                    (phi_array(i,j,k) - phi_array(i-1,j,k));
+            });
+        }
+        else
+        {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                rhs_array(i,j,k) -= sideCoeffx *
+                    (phi_array(i+1,j,k) - phi_array(i,j,k));
+            });
+        }
+
+        // y-direction
+        if (Ay > 0)
+        {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                rhs_array(i,j,k) -= sideCoeffy *
+                    (phi_array(i,j,k) - phi_array(i,j-1,k));
+            });
+        }
+        else
+        {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                rhs_array(i,j,k) -= sideCoeffy *
+                    (phi_array(i,j+1,k) - phi_array(i,j,k));
+            });
+        }
     }
 }

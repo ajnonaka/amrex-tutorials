@@ -13,4 +13,10 @@ void ComputeDiffusion(MultiFab& S_rhs,
                       const Real& Dy,
                       const GpuArray<Real,AMREX_SPACEDIM> dx);
 
+void ComputeAdvection(MultiFab& S_rhs,
+                      MultiFab& S_data,
+                      const Real& Ax,
+                      const Real& Ay,
+                      const GpuArray<Real,AMREX_SPACEDIM> dx);
+
 #endif
