@@ -6,11 +6,11 @@ plot_int = 10
 
 dt = 1.e-4
 
-advCoeffx = 1.
-advCoeffy = 1.
+advCoeffx = 10.
+advCoeffy = 10.
 
-diffCoeffx = 0.1
-diffCoeffy = 0.1
+diffCoeffx = 1.
+diffCoeffy = 1.
 
 # Use adaptive time stepping (multi-stage integrators only!) and set integrator relative and absolute tolerances
 # adapt_dt = true
