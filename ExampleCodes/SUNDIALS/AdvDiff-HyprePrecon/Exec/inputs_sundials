@@ -22,9 +22,9 @@ diffCoeffy = 1.
 ## 0 or "ForwardEuler" => Native AMReX Forward Euler integrator
 ## 1 or "RungeKutta"   => Native AMReX Explicit Runge Kutta controlled by integration.rk.type
 ## 2 or "SUNDIALS"     => SUNDIALS backend controlled by integration.sundials.type
-integration.type = ForwardEuler
+#integration.type = ForwardEuler
 #integration.type = RungeKutta
-#integration.type = SUNDIALS
+integration.type = SUNDIALS
 
 # Set the SUNDIALS method type:
 # ERK      = Explicit Runge-Kutta method
@@ -37,5 +37,3 @@ integration.type = ForwardEuler
 # Optionally select a specific SUNDIALS method by name, see the SUNDIALS
 # documentation for the supported method names
 integration.sundials.type = ERK
-
-
