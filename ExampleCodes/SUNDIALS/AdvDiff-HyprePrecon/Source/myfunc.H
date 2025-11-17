@@ -7,6 +7,10 @@ using namespace amrex;
 
 void main_main ();
 
+void InitializeData(MultiFab& phi,
+                    const GpuArray<Real,AMREX_SPACEDIM> dx,
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo);
+
 void ComputeDiffusion(MultiFab& S_rhs,
                       MultiFab& S_data,
                       const Real& Dx,

@@ -149,24 +149,7 @@ void main_main ()
     // **********************************
     // INITIALIZE DATA
 
-    // loop over boxes
-    for (MFIter mfi(phi); mfi.isValid(); ++mfi)
-    {
-        const Box& bx = mfi.validbox();
-        const Array4<Real>& phi_array = phi.array(mfi);
-
-        Real sigma = 0.1;
-        Real a = 1.0/(sigma*sqrt(2*M_PI));
-        Real b = -0.5/(sigma*sigma);
-        
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-        {
-            Real y = prob_lo[1] + (((Real) j) + 0.5) * dx[1];
-            Real x = prob_lo[0] + (((Real) i) + 0.5) * dx[0];
-            Real r = x * x + y * y;
-            phi_array(i,j,k) = a * std::exp(b * r);
-        });
-    }
+    InitializeData(phi,dx,prob_lo);
 
     // Write a plotfile of the initial data if plot_int > 0
     if (plot_int > 0)
@@ -187,8 +170,29 @@ void main_main ()
         ComputeAdvection(S_rhs, S_data, advCoeffx, advCoeffy, dx);
     };
 
+    auto rhs_im_function = [&](MultiFab& S_rhs, MultiFab& S_data, const Real /* time */) {
+
+        // fill periodic ghost cells
+        S_data.FillBoundary(geom.periodicity());
+
+        S_rhs.setVal(0.);
+        
+        ComputeDiffusion(S_rhs, S_data, diffCoeffx, diffCoeffy, dx);
+    };
+
+    auto rhs_ex_function = [&](MultiFab& S_rhs, MultiFab& S_data, const Real /* time */) {
+
+        // fill periodic ghost cells
+        S_data.FillBoundary(geom.periodicity());
+
+        S_rhs.setVal(0.);
+        
+        ComputeAdvection(S_rhs, S_data, advCoeffx, advCoeffy, dx);
+    };
+
     TimeIntegrator<MultiFab> integrator(phi, time);
     integrator.set_rhs(rhs_function);
+    integrator.set_imex_rhs(rhs_im_function, rhs_ex_function);
 
     if (adapt_dt) {
         integrator.set_adaptive_step();
@@ -226,6 +230,30 @@ void main_main ()
     Real evolution_stop_time = ParallelDescriptor::second() - evolution_start_time;
     ParallelDescriptor::ReduceRealMax(evolution_stop_time);
     amrex::Print() << "Total evolution time = " << evolution_stop_time << " seconds\n";
+}
+
+void InitializeData(MultiFab& phi,
+                    const GpuArray<Real,AMREX_SPACEDIM> dx,
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo) {
+
+    // loop over boxes
+    for (MFIter mfi(phi); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.validbox();
+        const Array4<Real>& phi_array = phi.array(mfi);
+
+        Real sigma = 0.1;
+        Real a = 1.0/(sigma*sqrt(2*M_PI));
+        Real b = -0.5/(sigma*sigma);
+        
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        {
+            Real y = prob_lo[1] + (((Real) j) + 0.5) * dx[1];
+            Real x = prob_lo[0] + (((Real) i) + 0.5) * dx[0];
+            Real r = x * x + y * y;
+            phi_array(i,j,k) = a * std::exp(b * r);
+        });
+    }
 }
 
 void ComputeDiffusion(MultiFab& S_rhs,
