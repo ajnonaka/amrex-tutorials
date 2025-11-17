@@ -180,6 +180,8 @@ void main_main ()
 
         // fill periodic ghost cells
         S_data.FillBoundary(geom.periodicity());
+
+        S_rhs.setVal(0.);
         
         ComputeDiffusion(S_rhs, S_data, diffCoeffx, diffCoeffy, dx);
         ComputeAdvection(S_rhs, S_data, advCoeffx, advCoeffy, dx);
@@ -272,16 +274,14 @@ void ComputeAdvection(MultiFab& S_rhs,
         {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
-                rhs_array(i,j,k) -= sideCoeffx *
-                    (phi_array(i,j,k) - phi_array(i-1,j,k));
+                rhs_array(i,j,k) -= sideCoeffx * (phi_array(i,j,k) - phi_array(i-1,j,k));
             });
         }
         else
         {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
-                rhs_array(i,j,k) -= sideCoeffx *
-                    (phi_array(i+1,j,k) - phi_array(i,j,k));
+                rhs_array(i,j,k) -= sideCoeffx * (phi_array(i+1,j,k) - phi_array(i,j,k));
             });
         }
 
@@ -290,16 +290,14 @@ void ComputeAdvection(MultiFab& S_rhs,
         {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
-                rhs_array(i,j,k) -= sideCoeffy *
-                    (phi_array(i,j,k) - phi_array(i,j-1,k));
+                rhs_array(i,j,k) -= sideCoeffy * (phi_array(i,j,k) - phi_array(i,j-1,k));
             });
         }
         else
         {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
-                rhs_array(i,j,k) -= sideCoeffy *
-                    (phi_array(i,j+1,k) - phi_array(i,j,k));
+                rhs_array(i,j,k) -= sideCoeffy * (phi_array(i,j+1,k) - phi_array(i,j,k));
             });
         }
     }
