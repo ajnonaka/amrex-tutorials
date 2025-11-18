@@ -160,6 +160,7 @@ int main (int argc, char* argv[])
     // we allocate two phi multifabs; one will store the old state, the other the new.
     amrex::MultiFab phi_old(ba, dm, Ncomp, Nghost);
     amrex::MultiFab phi_new(ba, dm, Ncomp, Nghost);
+    amrex::MultiFab phi_tmp(ba, dm, Ncomp, Nghost);
 
     // time = starting time in the simulation
     amrex::Real time = 0.0;
@@ -286,23 +287,21 @@ int main (int argc, char* argv[])
             write_datalog = true;  // Write every datalog_int steps
         }
 
+        amrex::MultiFab::Copy(phi_tmp, phi_new, 0, 0, 1, 0);
+        amrex::Real max_temperature = phi_new.max(0);
+        amrex::Real mean_temperature = phi_new.sum(0) / phi_new.boxArray().numPts();
+        phi_tmp.plus(-mean_temperature,0,1,0);
+        amrex::Real std_temperature = phi_tmp.norm2(0); // compute sqrt( sum(phi_tmp_i^2) );
+        amrex::Real integrated_temperature = phi_new.sum(0);
+
         if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
             std::ofstream datalog(datalog_filename, std::ios::app);
 
-            // Calculate temperature statistics
-            amrex::Real mean_temp = phi_new.sum(0) / phi_new.boxArray().numPts();
-            amrex::Real max_temperature = phi_new.max(0);
-            amrex::Real l2_norm = phi_new.norm2(0);
-            amrex::Real sum_sq = l2_norm * l2_norm;
-            amrex::Real variance = sum_sq / phi_new.boxArray().numPts() - mean_temp * mean_temp;
-            amrex::Real std_temperature = (variance > 0.0) ? std::sqrt(variance) : 0.0;
-            amrex::Real total_energy = phi_new.sum(0);
-
             // Write 4 statistics
             datalog << std::setw(datwidth) << std::setprecision(datprecision) << max_temperature;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision) << mean_temp;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << mean_temperature;
             datalog << std::setw(datwidth) << std::setprecision(datprecision) << std_temperature;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision) << total_energy;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << integrated_temperature;
             datalog << std::endl;
 
             datalog.close();
