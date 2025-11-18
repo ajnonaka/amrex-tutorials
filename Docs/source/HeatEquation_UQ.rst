@@ -1,3 +1,5 @@
+.. _tutorials_uq:
+
 .. _guided_pytuq_integration:
 
 .. _pytuq_quickstart:
@@ -58,27 +60,26 @@ Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/py
    # For NERSC: module load conda
 
    # 1. Clone repositories
-   git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
+   git clone https://github.com:sandialabs/pytuq.git
 
-   # 2. Setup conda environment (optional, you can add to an existing env)
-   # Create conda environment (use -y for non-interactive)
-   conda create -y --name pytuq_integration python=3.11 --no-default-packages
+   # 2. Create a conda environment with python (optional, you can add to an existing env)
+   conda create --name pytuq
+   conda activate pytuq
+   conda install python=3.11
 
    # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
    # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
+   # or
+   # conda activate /global/common/software/myproject/$USER/pytuq_integration
 
-   conda activate pytuq_integration
-   # For NERSC: conda activate /global/common/software/myproject/$USER/pytuq_integration
-
-   # 3. Install PyTUQ
+   # 3. Install PyTUQ and requirements
    cd pytuq
-   python -m pip install -r requirements.txt
-   python -m pip install .
-   conda install -y dill
-   cd ../
+   pip install -r requirements.txt
+   pip install .
+   conda install dill
 
    # 4. Verify installation
-   conda list | grep pytuq    # Should show pytuq 1.0.0z
+   conda list | grep pytuq    # Should show pytuq 1.0.0
 
 .. note::
 
@@ -110,11 +111,11 @@ C++ AMReX + PyTUQ (BASH driven)
    .. code-block:: bash
       :caption: Run with bash script
 
-      ./wf_uqpc.x
+      ./workflow_uqpc.x
 
 .. dropdown:: Understanding GNU Parallel Workflow Pattern
 
-   The ``wf_uqpc.x`` bash script relies on the user augmenting their codes to write outputs of interest to ASCII text files.
+   The ``workflow_uqpc.x`` bash script relies on the user augmenting their codes to write outputs of interest to ASCII text files.
    In this case, the ``main.cpp`` was modified from the ``amrex-tutorials/GuidedTutorials/HeatEquation_Simple/main.cpp`` in the following ways:
 
    First, support for parsing ``diffusion_coeff``, ``init_amplitude``, and ``init_width`` from the input file and command line were added.
@@ -125,54 +126,95 @@ C++ AMReX + PyTUQ (BASH driven)
    the outputs of interest after the final step are those that matter, and are extracted by the bash script to create a master output file
    containing a separate set of simulation outputs of interest in each row.
 
-   The bash script calls PyTUQ scripts that generate an input parameter file (``psam.txt``) and then uses GNU Parallel to run multiple simulations
-   efficiently and collect outputs into a results file (``ysam.txt``) that PyTUQ can use for surrogate model fitting.
+   The bash script calls PyTUQ scripts that generate an input parameter file (``ptrain.txt``) and then uses GNU Parallel to run multiple simulations
+   efficiently and collect outputs into a results file (``ytrain.txt``) that PyTUQ can use for surrogate model fitting.
 
    Here's how the script works.
    In the first part of the script, the user generates a ``param_margpc.txt`` file containing the mean and standard deviation
    of each normal random parameter.  Then pyTUQ scripts are called to generate the appropriate sampling based on polynomial chaos settings,
-   and ultimately creates ``psam.txt`` which contains the parameters (one set per line) for each simulation to be run.
+   and ultimately creates ``ptrain.txt`` which contains the parameters (one set per line) for each simulation to be run.
 
    .. code-block:: bash
-      :caption: Example GNU Parallel command (``wf_uqpc.x``)
+      :caption: Example GNU Parallel command (``workflow_uqpc.x``)
 
       #!/bin/bash -e
+      #=====================================================================================
 
-      # location of pytuq
-      export KLPC=$(pwd)/../../../../pytuq
+      # Script location
+      export UQPC=../../../../pytuq/apps/uqpc
+      export PUQAPPS=$UQPC/..
 
-      #First-order Polynomial Chaos (PC).
-      ## Given mean and standard deviation of each normal random parameter
+      ################################
+      ##    0. Setup the problem    ##
+      ################################
+
+      ## Four simple options for uncertain input parameter setup. 
+      ## Uncomment one of them. 
+
+      ## (a) Given mean and standard deviation of each normal random parameter
       # inputs are diffusion_coeff, init_amplitude, init_width
-      echo "1 0.25 " > param_margpc.txt
+      echo "100 25 " > param_margpc.txt
       echo "1 0.25" >> param_margpc.txt
       echo "0.01 0.0025" >> param_margpc.txt
+      PC_TYPE=HG # Hermite-Gaussian PC
+      INPC_ORDER=1
+      # Creates input PC coefficient file pcf.txt (will have lots of zeros since we assume independent inputs)
+      ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
 
-      PCTYPE="HG"
-      ORDER=1
-      NSAM=20
+      # Number of samples requested
+      NTRN=111 # Training
+      NTST=33  # Testing	
 
-      # generate pcf.txt (re-ordering of parame_margpc.txt)
-      ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
+      # Extract dimensionality d (i.e. number of input parameters)
+      DIM=`awk 'NR==1{print NF}' pcf.txt`
 
-      # generate qsam.txt (random numbers drawn from polynomial chaos basis) and
-      # generate psam.txt (the randomly varying inputs parameters)
-      ${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE $NSAM
+      # Output PC order
+      OUTPC_ORDER=3
+
+      # Prepare inputs for the black-box model (use input PC to generate input samples for the model)
+      ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTRN
+      mv psam.txt ptrain.txt; mv qsam.txt qtrain.txt
+      ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTST
+      mv psam.txt ptest.txt; mv qsam.txt qtest.txt
+
+      # This creates files ptrain.txt, ptest.txt (train/test parameter inputs), qtrain.txt, qtest.txt (corresponding train/test stochastic PC inputs)
+
+      # Optionally can provide pnames.txt and outnames.txt with input parameter names and output QoI names
+      # Or delete them to use generic names
+      rm -f pnames.txt outnames.txt
 
    The next part of the script runs all of the simulation and collects the results.
       
    .. code-block:: bash
 
-      parallel --jobs 4 --keep-order --colsep ' ' \
-        './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
-        datalog=datalog_{#}.txt \
-        > /dev/null 2>&1 \
-        && tail -1 datalog_{#}.txt' \
-      :::: psam.txt > ysam.txt
+      ################################
+      ## 2. Run the black-box model ##
+      ################################
+
+      # Run the black-box model, can be any model from R^d to R^o)
+      # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
+      # ytrain.txt is N x o output matrix, each row is a output vector of size o 
+
+      parallel --jobs 1 --keep-order --colsep ' ' \
+      './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+      datalog=datalog_{#}.txt \
+      > /dev/null 2>&1 \
+      && tail -1 datalog_{#}.txt' \
+      :::: ptrain.txt > ytrain.txt
+
+      # Similar for testing
+      parallel --jobs 1 --keep-order --colsep ' ' \
+      './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+      datalog=datalog_{#}.txt \
+      > /dev/null 2>&1 \
+      && tail -1 datalog_{#}.txt' \
+      :::: ptest.txt > ytest.txt
+
+      # This creates files ytrain.txt, ytest.txt (train/test model outputs)
 
    **How it works:**
 
-   1. **Input file (psam.txt)** - Space/tab-separated parameter samples (one row per simulation):
+   1. **Input file (ptrain.txt)** - Space/tab-separated parameter samples (one row per simulation):
 
       .. code-block:: text
 
@@ -189,7 +231,7 @@ C++ AMReX + PyTUQ (BASH driven)
 
    3. **After simulation**, extracts output from final line of simulation standard output with ``tail -1 datalog_{#}.txt``
 
-   4. **Output file (ysam.txt)** - Collected results (one row per simulation):
+   4. **Output file (ytrain.txt)** - Collected results (one row per simulation):
 
       .. code-block:: text
 
@@ -204,7 +246,7 @@ C++ AMReX + PyTUQ (BASH driven)
    - ``--jobs 4`` - Run 4 simulations in parallel
    - ``--colsep ' '`` - Columns separated by spaces (use ``'\t'`` for tabs)
    - ``-k`` - Keep output order matching input order (important for parallel jobs)
-   - ``::::`` - Read input from file (``psam.txt``)
+   - ``::::`` - Read input from file (``ptrain.txt``)
 
    **Output extraction alternatives:**
 
@@ -225,7 +267,12 @@ C++ AMReX + PyTUQ (BASH driven)
      
    .. code-block:: bash
       
-      ${KLPC}/apps/pc_fit.py --pctype $PCTYPE --order $ORDER --xdata "qsam.txt" --ydata "ysam.txt"
+      ##############################
+      #  3. Build PC surrogate    ##
+      ##############################
+
+      # Build surrogate for each output (in other words, build output PC)
+      ${UQPC}/uq_pc.py -r offline -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
      
 .. dropdown:: Understanding the Output
 
