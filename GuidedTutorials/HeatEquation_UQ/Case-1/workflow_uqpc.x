@@ -115,7 +115,18 @@ mv psam.txt ptest.txt; mv qsam.txt qtest.txt
 
 # Optionally can provide pnames.txt and outnames.txt with input parameter names and output QoI names
 # Or delete them to use generic names
-rm -f pnames.txt outnames.txt
+#rm -f pnames.txt outnames.txt
+
+echo "diffusion_coef" > pnames.txt
+echo "init_amplitude" >> pnames.txt
+echo "init_width" >> pnames.txt
+
+echo "max_temp" > outnames.txt
+echo "mean_temp" >> outnames.txt
+echo "std_temp" >> outnames.txt
+echo "cell_temp" >> outnames.txt
+
+
 
 ################################
 ## 2. Run the black-box model ##

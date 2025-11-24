@@ -9,6 +9,7 @@
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_ParmParse.H>
 
+using namespace amrex;
 
 int main (int argc, char* argv[])
 {
@@ -32,20 +33,20 @@ int main (int argc, char* argv[])
     int plot_int;
 
     // time step
-    amrex::Real dt;
+    Real dt;
 
     // **********************************
     // DECLARE PHYSICS PARAMETERS
     // **********************************
 
     // diffusion coefficient for heat equation
-    amrex::Real diffusion_coeff;
+    Real diffusion_coeff;
 
     // amplitude of initial temperature profile
-    amrex::Real init_amplitude;
+    Real init_amplitude;
 
     // width parameter controlling spread of initial profile (variance, not std dev)
-    amrex::Real init_width;
+    Real init_width;
 
     // **********************************
     // DECLARE DATALOG PARAMETERS
@@ -64,7 +65,7 @@ int main (int argc, char* argv[])
         // ParmParse is way of reading inputs from the inputs file
         // pp.get means we require the inputs file to have it
         // pp.query means we optionally need the inputs file to have it - but we must supply a default here
-        amrex::ParmParse pp;
+        ParmParse pp;
 
         // We need to get n_cell from the inputs file - this is the number of cells on each side of
         //   a square (or cubic) domain.
@@ -119,15 +120,15 @@ int main (int argc, char* argv[])
     // ba will contain a list of boxes that cover the domain
     // geom contains information such as the physical domain size,
     // number of points in the domain, and periodicity
-    amrex::BoxArray ba;
-    amrex::Geometry geom;
+    BoxArray ba;
+    Geometry geom;
 
     // define lower and upper indices
-    amrex::IntVect dom_lo(0,0,0);
-    amrex::IntVect dom_hi(n_cell-1, n_cell-1, n_cell-1);
+    IntVect dom_lo(0,0,0);
+    IntVect dom_hi(n_cell-1, n_cell-1, n_cell-1);
 
     // Make a single box that is the entire domain
-    amrex::Box domain(dom_lo, dom_hi);
+    Box domain(dom_lo, dom_hi);
 
     // Initialize the boxarray "ba" from the single box "domain"
     ba.define(domain);
@@ -136,17 +137,17 @@ int main (int argc, char* argv[])
     ba.maxSize(max_grid_size);
 
     // This defines the physical box, [0,1] in each direction.
-    amrex::RealBox real_box({ 0., 0., 0.},
+    RealBox real_box({ 0., 0., 0.},
                      { 1., 1., 1.});
 
     // periodic in all direction
-    amrex::Array<int,3> is_periodic{1,1,1};
+    Array<int,3> is_periodic{1,1,1};
 
     // This defines a Geometry object
-    geom.define(domain, real_box, amrex::CoordSys::cartesian, is_periodic);
+    geom.define(domain, real_box, CoordSys::cartesian, is_periodic);
 
     // extract dx from the geometry object
-    amrex::GpuArray<amrex::Real,3> dx = geom.CellSizeArray();
+    GpuArray<Real,3> dx = geom.CellSizeArray();
 
     // Nghost = number of ghost cells for each array
     int Nghost = 1;
@@ -155,26 +156,26 @@ int main (int argc, char* argv[])
     int Ncomp = 1;
 
     // How Boxes are distrubuted among MPI processes
-    amrex::DistributionMapping dm(ba);
+    DistributionMapping dm(ba);
 
     // we allocate two phi multifabs; one will store the old state, the other the new.
-    amrex::MultiFab phi_old(ba, dm, Ncomp, Nghost);
-    amrex::MultiFab phi_new(ba, dm, Ncomp, Nghost);
-    amrex::MultiFab phi_tmp(ba, dm, Ncomp, Nghost);
+    MultiFab phi_old(ba, dm, Ncomp, Nghost);
+    MultiFab phi_new(ba, dm, Ncomp, Nghost);
+    MultiFab phi_tmp(ba, dm, Ncomp, Nghost);
 
     // time = starting time in the simulation
-    amrex::Real time = 0.0;
+    Real time = 0.0;
 
     // **********************************
     // INITIALIZE DATA LOOP
     // **********************************
 
     // loop over boxes
-    for (amrex::MFIter mfi(phi_old); mfi.isValid(); ++mfi)
+    for (MFIter mfi(phi_old); mfi.isValid(); ++mfi)
     {
-        const amrex::Box& bx = mfi.validbox();
+        const Box& bx = mfi.validbox();
 
-        const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
+        const Array4<Real>& phiOld = phi_old.array(mfi);
 
         // **********************************
         // SET INITIAL TEMPERATURE PROFILE
@@ -187,17 +188,17 @@ int main (int argc, char* argv[])
         // - width: controls spread of initial hot spot
         //   - smaller width = more concentrated
         //   - larger width = more spread out
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
 
             // **********************************
             // SET VALUES FOR EACH CELL
             // **********************************
 
-            amrex::Real x = (i+0.5) * dx[0];
-            amrex::Real y = (j+0.5) * dx[1];
-            amrex::Real z = (k+0.5) * dx[2];
-            amrex::Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/init_width;
+            Real x = (i+0.5) * dx[0];
+            Real y = (j+0.5) * dx[1];
+            Real z = (k+0.5) * dx[2];
+            Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/init_width;
             phiOld(i,j,k) = 1. + init_amplitude * std::exp(-rsquared);
         });
     }
@@ -205,12 +206,12 @@ int main (int argc, char* argv[])
     // **********************************
     // WRITE DATALOG FILE
     // **********************************
-    if (amrex::ParallelDescriptor::IOProcessor()) {
+    if (ParallelDescriptor::IOProcessor()) {
         std::ofstream datalog(datalog_filename);  // truncate mode to start fresh
         datalog << "#" << std::setw(datwidth-1) << "     max_temp";
         datalog << std::setw(datwidth) << "    mean_temp";
         datalog << std::setw(datwidth) << "     std_temp";
-        datalog << std::setw(datwidth) << " total_energy";
+        datalog << std::setw(datwidth) << "    cell_temp";
         datalog << std::endl;
         datalog.close();
     }
@@ -223,7 +224,7 @@ int main (int argc, char* argv[])
     if (plot_int > 0)
     {
         int step = 0;
-        const std::string& pltfile = amrex::Concatenate("plt",step,5);
+        const std::string& pltfile = Concatenate("plt",step,5);
         WriteSingleLevelPlotfile(pltfile, phi_old, {"phi"}, geom, time, 0);
     }
 
@@ -239,15 +240,15 @@ int main (int argc, char* argv[])
 
         // new_phi = old_phi + dt * Laplacian(old_phi)
         // loop over boxes
-        for ( amrex::MFIter mfi(phi_old); mfi.isValid(); ++mfi )
+        for ( MFIter mfi(phi_old); mfi.isValid(); ++mfi )
         {
-            const amrex::Box& bx = mfi.validbox();
+            const Box& bx = mfi.validbox();
 
-            const amrex::Array4<amrex::Real>& phiOld = phi_old.array(mfi);
-            const amrex::Array4<amrex::Real>& phiNew = phi_new.array(mfi);
+            const Array4<Real>& phiOld = phi_old.array(mfi);
+            const Array4<Real>& phiNew = phi_new.array(mfi);
 
             // advance the data by dt
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
 
                 // **********************************
@@ -262,6 +263,33 @@ int main (int argc, char* argv[])
             });
         }
 
+        // find the value in cell (9,9,9)
+        ReduceOps<ReduceOpSum> reduce_op;
+        ReduceData<Real> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+
+        for ( MFIter mfi(phi_old); mfi.isValid(); ++mfi )
+        {
+            const Box& bx = mfi.validbox();
+
+            const Array4<Real>& phiOld = phi_old.array(mfi);
+            const Array4<Real>& phiNew = phi_new.array(mfi);
+
+            // advance the data by dt
+            reduce_op.eval(bx, reduce_data,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+            {
+                if (i==9 && j==9 && k==9) {
+                    return{phiNew(i,j,k)};
+                } else {
+                    return {0.};
+                }
+            });
+        }
+
+        Real cell_temperature = get<0>(reduce_data.value());
+        ParallelDescriptor::ReduceRealSum(cell_temperature);
+
         // **********************************
         // INCREMENT
         // **********************************
@@ -270,10 +298,10 @@ int main (int argc, char* argv[])
         time = time + dt;
 
         // copy new solution into old solution
-        amrex::MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 0);
+        MultiFab::Copy(phi_old, phi_new, 0, 0, 1, 0);
 
         // Tell the I/O Processor to write out which step we're doing
-        amrex::Print() << "Advanced step " << step << "\n";
+        Print() << "Advanced step " << step << "\n";
 
         // **********************************
         // WRITE DATALOG AT GIVEN INTERVAL
@@ -287,21 +315,20 @@ int main (int argc, char* argv[])
             write_datalog = true;  // Write every datalog_int steps
         }
 
-        amrex::MultiFab::Copy(phi_tmp, phi_new, 0, 0, 1, 0);
-        amrex::Real max_temperature = phi_new.max(0);
-        amrex::Real mean_temperature = phi_new.sum(0) / phi_new.boxArray().numPts();
+        MultiFab::Copy(phi_tmp, phi_new, 0, 0, 1, 0);
+        Real max_temperature = phi_new.max(0);
+        Real mean_temperature = phi_new.sum(0) / phi_new.boxArray().numPts();
         phi_tmp.plus(-mean_temperature,0,1,0);
-        amrex::Real std_temperature = phi_tmp.norm2(0); // compute sqrt( sum(phi_tmp_i^2) );
-        amrex::Real integrated_temperature = phi_new.sum(0);
+        Real std_temperature = phi_tmp.norm2(0); // compute sqrt( sum(phi_tmp_i^2) );
 
-        if (write_datalog && amrex::ParallelDescriptor::IOProcessor()) {
+        if (write_datalog && ParallelDescriptor::IOProcessor()) {
             std::ofstream datalog(datalog_filename, std::ios::app);
 
             // Write 4 statistics
             datalog << std::setw(datwidth) << std::setprecision(datprecision) << max_temperature;
             datalog << std::setw(datwidth) << std::setprecision(datprecision) << mean_temperature;
             datalog << std::setw(datwidth) << std::setprecision(datprecision) << std_temperature;
-            datalog << std::setw(datwidth) << std::setprecision(datprecision) << integrated_temperature;
+            datalog << std::setw(datwidth) << std::setprecision(datprecision) << cell_temperature;
             datalog << std::endl;
 
             datalog.close();
@@ -314,15 +341,13 @@ int main (int argc, char* argv[])
         // Write a plotfile of the current data (plot_int was defined in the inputs file)
         if (plot_int > 0 && step%plot_int == 0)
         {
-            const std::string& pltfile = amrex::Concatenate("plt",step,5);
+            const std::string& pltfile = Concatenate("plt",step,5);
             WriteSingleLevelPlotfile(pltfile, phi_new, {"phi"}, geom, time, step);
         }
     }
 
 
     }
-    amrex::Finalize();
+    Finalize();
     return 0;
 }
-
-
