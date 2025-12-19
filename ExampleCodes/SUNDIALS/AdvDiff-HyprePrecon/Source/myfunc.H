@@ -9,7 +9,11 @@ void main_main ();
 
 void InitializeData(MultiFab& phi,
                     const GpuArray<Real,AMREX_SPACEDIM> dx,
-                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo);
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo,
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_hi,
+                    const Real& time,
+                    const Real& Ax,
+                    const Real& Ay);
 
 void ComputeDiffusion(MultiFab& S_rhs,
                       MultiFab& S_data,

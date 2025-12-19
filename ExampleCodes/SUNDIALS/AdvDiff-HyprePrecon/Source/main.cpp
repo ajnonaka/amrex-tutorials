@@ -149,7 +149,7 @@ void main_main ()
     // **********************************
     // INITIALIZE DATA
 
-    InitializeData(phi,dx,prob_lo);
+    InitializeData(phi,dx,prob_lo,prob_hi,time,advCoeffx,advCoeffy);
 
     // Write a plotfile of the initial data if plot_int > 0
     if (plot_int > 0)
@@ -230,11 +230,32 @@ void main_main ()
     Real evolution_stop_time = ParallelDescriptor::second() - evolution_start_time;
     ParallelDescriptor::ReduceRealMax(evolution_stop_time);
     amrex::Print() << "Total evolution time = " << evolution_stop_time << " seconds\n";
+
+    // exact solution
+    MultiFab phi_exact(ba, dm, Ncomp, 0);
+    InitializeData(phi_exact,dx,prob_lo,prob_hi,time,advCoeffx,advCoeffy);
+    const std::string& pltfile = amrex::Concatenate("exact",nsteps,5);
+    WriteSingleLevelPlotfile(pltfile, phi_exact, {"phi"}, geom, time, nsteps);
+
+    
+    MultiFab::Subtract(phi_exact,phi,0,0,1,0);
+    Real error = phi_exact.norm1(0,geom.periodicity());
+
+    amrex::Print() << "L1 error = " << error << std::endl;
 }
 
 void InitializeData(MultiFab& phi,
                     const GpuArray<Real,AMREX_SPACEDIM> dx,
-                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo) {
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_lo,
+                    const GpuArray<Real,AMREX_SPACEDIM> prob_hi,
+                    const Real& time,
+                    const Real& Ax,
+                    const Real& Ay) {
+    
+    GpuArray<Real,AMREX_SPACEDIM> L;
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
+        L[d] = prob_hi[d] - prob_lo[d];
+    }
 
     // loop over boxes
     for (MFIter mfi(phi); mfi.isValid(); ++mfi)
@@ -245,15 +266,16 @@ void InitializeData(MultiFab& phi,
         Real sigma = 0.1;
         Real a = 1.0/(sigma*sqrt(2*M_PI));
         Real b = -0.5/(sigma*sigma);
-        
+
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            Real y = prob_lo[1] + (((Real) j) + 0.5) * dx[1];
             Real x = prob_lo[0] + (((Real) i) + 0.5) * dx[0];
-            Real r = x * x + y * y;
+            Real y = prob_lo[1] + (((Real) j) + 0.5) * dx[1];
+            Real r = (x-Ax*time) * (x-Ax*time) + (y-Ay*time) * (y-Ay*time);
             phi_array(i,j,k) = a * std::exp(b * r);
         });
     }
+
 }
 
 void ComputeDiffusion(MultiFab& S_rhs,
