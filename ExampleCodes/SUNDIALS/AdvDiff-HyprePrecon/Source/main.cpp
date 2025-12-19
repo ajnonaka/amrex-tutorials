@@ -96,13 +96,6 @@ void main_main ()
     // **********************************
     // SIMULATION SETUP
 
-    // make BoxArray and Geometry
-    // ba will contain a list of boxes that cover the domain
-    // geom contains information such as the physical domain size,
-    //               number of points in the domain, and periodicity
-    BoxArray ba;
-    Geometry geom;
-
     // AMREX_D_DECL means "do the first X of these, where X is the dimensionality of the simulation"
     IntVect dom_lo(AMREX_D_DECL(       0,        0,        0));
     IntVect dom_hi(AMREX_D_DECL(n_cell-1, n_cell-1, n_cell-1));
@@ -110,8 +103,9 @@ void main_main ()
     // Make a single box that is the entire domain
     Box domain(dom_lo, dom_hi);
 
+    // ba will contain a list of boxes that cover the domain
     // Initialize the boxarray "ba" from the single box "domain"
-    ba.define(domain);
+    BoxArray ba(domain);
 
     // Break up boxarray "ba" into chunks no larger than "max_grid_size" along a direction
     ba.maxSize(max_grid_size);
@@ -123,8 +117,10 @@ void main_main ()
     // periodic in all direction
     Array<int,AMREX_SPACEDIM> is_periodic{AMREX_D_DECL(1,1,1)};
 
+    // geom contains information such as the physical domain size,
+    //               number of points in the domain, and periodicity
     // This defines a Geometry object
-    geom.define(domain, real_box, CoordSys::cartesian, is_periodic);
+    Geometry geom(domain, real_box, CoordSys::cartesian, is_periodic);
 
     // extract dx from the geometry object
     GpuArray<Real,AMREX_SPACEDIM> dx = geom.CellSizeArray();
@@ -232,15 +228,28 @@ void main_main ()
     amrex::Print() << "Total evolution time = " << evolution_stop_time << " seconds\n";
 
     // exact solution
-    MultiFab phi_exact(ba, dm, Ncomp, 0);
+    BoxArray ba_exact(domain);
+    DistributionMapping dm_exact(ba_exact);
+    MultiFab phi_exact(ba_exact, dm_exact, Ncomp, n_cell);
     InitializeData(phi_exact,dx,prob_lo,prob_hi,time,advCoeffx,advCoeffy);
-    const std::string& pltfile = amrex::Concatenate("exact",nsteps,5);
-    WriteSingleLevelPlotfile(pltfile, phi_exact, {"phi"}, geom, time, nsteps);
+    phi_exact.SumBoundary(geom.periodicity());
 
+    {
+        const std::string& pltfile = amrex::Concatenate("exact",nsteps,5);
+        WriteSingleLevelPlotfile(pltfile, phi_exact, {"phi"}, geom, time, nsteps);
+    }
+
+    MultiFab phi_exact_dist(ba,dm,Ncomp,0);
+    phi_exact_dist.ParallelCopy(phi_exact,0,0,1);
     
-    MultiFab::Subtract(phi_exact,phi,0,0,1,0);
-    Real error = phi_exact.norm1(0,geom.periodicity());
+    MultiFab::Subtract(phi_exact_dist,phi,0,0,1,0);
 
+    {
+        const std::string& pltfile = amrex::Concatenate("diff",nsteps,5);
+        WriteSingleLevelPlotfile(pltfile, phi_exact_dist, {"phi"}, geom, time, nsteps);
+    }
+
+    Real error = phi_exact_dist.norm1(0,geom.periodicity());
     amrex::Print() << "L1 error = " << error << std::endl;
 }
 
@@ -251,6 +260,8 @@ void InitializeData(MultiFab& phi,
                     const Real& time,
                     const Real& Ax,
                     const Real& Ay) {
+
+    int ng = phi.nGrow();
     
     GpuArray<Real,AMREX_SPACEDIM> L;
     for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -260,7 +271,7 @@ void InitializeData(MultiFab& phi,
     // loop over boxes
     for (MFIter mfi(phi); mfi.isValid(); ++mfi)
     {
-        const Box& bx = mfi.validbox();
+        const Box& bx = mfi.growntilebox(ng);
         const Array4<Real>& phi_array = phi.array(mfi);
 
         Real sigma = 0.1;
