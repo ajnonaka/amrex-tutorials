@@ -23,6 +23,10 @@ If you have conda, you can install the necessary packages as follows:
 
        2. Type "conda install sphinx_rtd_theme"
 
+       3. Type "sphinx-design"
+
+       4. Type "conda install -c conda-forge sphinx-copybutton"
+
 If you don't have a conda Python installation, you get one by doing the following:
 
        1.  Go to https://conda.io/miniconda.html and download the Python 3.6 64-bit (bash installer), "Miniconda3-latest-Linux-x86_64.sh".  Save this script to your hard drive.
