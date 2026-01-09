@@ -31,7 +31,7 @@ In these examples we model the heat equation
 .. math:: \frac{\partial\phi}{\partial t} = D\nabla^2 \phi,
 
 with initial condition
-   
+
 .. math:: \phi_0 = 1 + A e^{-r^2 / W},
 
 with uncertain parameters ``diffusion_coeff`` (:math:`D`), ``init_amplitude`` (:math:`A`), and ``init_width`` (:math:`W`).
@@ -93,7 +93,7 @@ Examples
 
 C++ AMReX + PyTUQ (BASH driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          
+
 .. dropdown:: Build and Run
    :open:
 
@@ -148,8 +148,8 @@ C++ AMReX + PyTUQ (BASH driven)
       ##    0. Setup the problem    ##
       ################################
 
-      ## Four simple options for uncertain input parameter setup. 
-      ## Uncomment one of them. 
+      ## Four simple options for uncertain input parameter setup.
+      ## Uncomment one of them.
 
       ## (a) Given mean and standard deviation of each normal random parameter
       # inputs are diffusion_coeff, init_amplitude, init_width
@@ -163,7 +163,7 @@ C++ AMReX + PyTUQ (BASH driven)
 
       # Number of samples requested
       NTRN=111 # Training
-      NTST=33  # Testing	
+      NTST=33  # Testing
 
       # Extract dimensionality d (i.e. number of input parameters)
       DIM=`awk 'NR==1{print NF}' pcf.txt`
@@ -184,7 +184,7 @@ C++ AMReX + PyTUQ (BASH driven)
       rm -f pnames.txt outnames.txt
 
    The next part of the script runs all of the simulation and collects the results.
-      
+
    .. code-block:: bash
 
       ################################
@@ -193,7 +193,7 @@ C++ AMReX + PyTUQ (BASH driven)
 
       # Run the black-box model, can be any model from R^d to R^o)
       # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
-      # ytrain.txt is N x o output matrix, each row is a output vector of size o 
+      # ytrain.txt is N x o output matrix, each row is a output vector of size o
 
       parallel --jobs 1 --keep-order --colsep ' ' \
       './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
@@ -264,16 +264,16 @@ C++ AMReX + PyTUQ (BASH driven)
    - Collect results into an output file with N rows (one per simulation result)
 
    Finally, the pyTUQ analyzes the results:
-     
+
    .. code-block:: bash
-      
+
       ##############################
       #  3. Build PC surrogate    ##
       ##############################
 
       # Build surrogate for each output (in other words, build output PC)
       ${UQPC}/uq_pc.py -r offline -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
-     
+
 .. dropdown:: Understanding the Output
 
 
