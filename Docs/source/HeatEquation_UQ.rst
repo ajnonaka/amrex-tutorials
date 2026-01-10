@@ -60,7 +60,7 @@ Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/py
    # For NERSC: module load conda
 
    # 1. Clone repositories
-   git clone https://github.com:sandialabs/pytuq.git
+   git clone https://github.com/sandialabs/pytuq.git
 
    # 2. Create a conda environment with python (optional, you can add to an existing env)
    conda create --name pytuq
