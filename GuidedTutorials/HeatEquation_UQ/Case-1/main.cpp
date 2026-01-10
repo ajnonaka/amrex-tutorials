@@ -45,8 +45,8 @@ int main (int argc, char* argv[])
     // amplitude of initial temperature profile
     Real init_amplitude;
 
-    // width parameter controlling spread of initial profile (variance, not std dev)
-    Real init_width;
+    // variance of the intitial temperature profile
+    Real init_variance;
 
     // **********************************
     // DECLARE DATALOG PARAMETERS
@@ -106,10 +106,10 @@ int main (int argc, char* argv[])
         init_amplitude = 1.0;
         pp.query("init_amplitude", init_amplitude);
 
-        // Width parameter - this is the variance (width²), not standard deviation
+        // Initial temperature variance
         // Smaller values = more concentrated, larger values = more spread out
-        init_width = 0.01;  // Note: 0.01 to match your original rsquared/0.01
-        pp.query("init_width", init_width);
+        init_variance = 0.01;
+        pp.query("init_variance", init_variance);
     }
 
     // **********************************
@@ -180,14 +180,14 @@ int main (int argc, char* argv[])
         // **********************************
         // SET INITIAL TEMPERATURE PROFILE
         // **********************************
-        // Formula: T = 1 + amplitude * exp(-r^2 / width^2)
+        // Formula: T = 1 + amplitude * exp(-r^2 / (2*variance))
         // where r is distance from center (0.5, 0.5, 0.5)
         //
         // Parameters:
         // - amplitude: controls peak temperature above baseline (1.0)
-        // - width: controls spread of initial hot spot
-        //   - smaller width = more concentrated
-        //   - larger width = more spread out
+        // - variance: controls spread of initial hot spot
+        //   - smaller variance = more concentrated
+        //   - larger variance = more spread out
         ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
 
@@ -198,7 +198,7 @@ int main (int argc, char* argv[])
             Real x = (i+0.5) * dx[0];
             Real y = (j+0.5) * dx[1];
             Real z = (k+0.5) * dx[2];
-            Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/init_width;
+            Real rsquared = ((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)+(z-0.5)*(z-0.5))/(2*init_variance);
             phiOld(i,j,k) = 1. + init_amplitude * std::exp(-rsquared);
         });
     }

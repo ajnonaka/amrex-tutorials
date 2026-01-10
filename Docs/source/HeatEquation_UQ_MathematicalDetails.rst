@@ -24,12 +24,12 @@ The initial temperature profile is a Gaussian centered at (0.5, 0.5, 0.5):
 
 .. math::
 
-   T(x,y,z,t=0) = 1 + A \exp\left(-\frac{r^2}{w^2}\right)
+   T(x,y,z,t=0) = 1 + A \exp\left(-\frac{r^2}{2*V}\right)
 
 where:
 
 - :math:`A` is the initial amplitude (``init_amplitude``)
-- :math:`w^2` is the initial width parameter (``init_width``)
+- :math:`V` is the initial variance (``init_variance``)
 - :math:`r^2 = (x-0.5)^2 + (y-0.5)^2 + (z-0.5)^2`
 
 Uncertain Input Parameters
@@ -49,7 +49,7 @@ The three uncertain parameters in this analysis are:
    - Standard deviation: 0.25 K
    - Range: [0.25, 1.75] K
 
-3. **init_width** (:math:`w^2`): Controls spread of initial temperature profile
+3. **init_variance** (:math:`V`): Controls spread of initial temperature profile
 
    - Mean: 0.01 m²
    - Standard deviation: 0.0025 m²
@@ -81,5 +81,5 @@ PyTUQ uses polynomial chaos expansion to construct a surrogate model:
 
 The connection is:
 
-- **Inputs**: ParmParse parameters (``diffusion_coeff``, ``init_amplitude``, ``init_width``) specified in ``inputs`` file or command line
+- **Inputs**: ParmParse parameters (``diffusion_coeff``, ``init_amplitude``, ``init_variance``) specified in ``inputs`` file or command line
 - **Outputs**: Quantities of interest extracted from datalog files or direct Python access to MultiFabs

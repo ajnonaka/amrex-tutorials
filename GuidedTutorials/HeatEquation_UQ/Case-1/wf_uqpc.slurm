@@ -26,7 +26,7 @@ echo "0.01 0.0025" >> param_margpc.txt
 
 echo "diffusion_coeff" > pnames.txt
 echo "init_amplitude" >> pnames.txt
-echo "init_width" >> pnames.txt
+echo "init_variance" >> pnames.txt
 
 echo "max_temp" > outnames.txt
 echo "mean_temp" >> outnames.txt
@@ -41,7 +41,7 @@ ${KLPC}/apps/pc_prep.py marg param_margpc.txt $ORDER
 ${KLPC}/apps/pc_sam.py pcf.txt $PCTYPE $NSAM
 
 srun parallel --jobs 4 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
     datalog=datalog_{#}.txt \
     plot_int = -1 > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \

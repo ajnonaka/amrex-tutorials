@@ -15,7 +15,7 @@ export PUQAPPS=$UQPC/..
 ## Uncomment one of them. 
 
 ## (a) Given mean and standard deviation of each normal random parameter
-# inputs are diffusion_coeff, init_amplitude, init_width
+# inputs are diffusion_coeff, init_amplitude, init_variance
 echo "100 25 " > param_margpc.txt
 echo "1 0.25" >> param_margpc.txt
 echo "0.01 0.0025" >> param_margpc.txt
@@ -24,7 +24,7 @@ INPC_ORDER=1
 # Creates input PC coefficient file pcf.txt (will have lots of zeros since we assume independent inputs)
 ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
 
-# ## (b) Given mean and half-width of each uniform random parameter
+# ## (b) Given mean and variance of each uniform random parameter
 # echo "1 0.3 " > param_margpc.txt
 # echo "3 0.1" >> param_margpc.txt
 # echo "1 0.5" >> param_margpc.txt
@@ -119,7 +119,7 @@ mv psam.txt ptest.txt; mv qsam.txt qtest.txt
 
 echo "diffusion_coef" > pnames.txt
 echo "init_amplitude" >> pnames.txt
-echo "init_width" >> pnames.txt
+echo "init_variance" >> pnames.txt
 
 echo "max_temp" > outnames.txt
 echo "mean_temp" >> outnames.txt
@@ -136,16 +136,22 @@ echo "cell_temp" >> outnames.txt
 # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
 # ytrain.txt is N x o output matrix, each row is a output vector of size o 
 
-parallel --jobs 1 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+parallel --jobs 4 --keep-order --colsep ' ' \
+  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
     datalog=datalog_{#}.txt \
     > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \
   :::: ptrain.txt > ytrain.txt
 
+#while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
+#  mpiexec -n 1 ./main3d.gnu.ex inputs diffusion_coeff="$diffusion_coeff" init_amplitude="$init_amplitude" init_variance="$init_variance" datalog="datalog_$(printf '%03d' $((counter++))).txt" > /dev/null 2>&1
+#  tail -1 "datalog_$(printf '%03d' $((counter - 1))).txt"
+#done < ptrain.txt > ytrain.txt
+
+
 # Similar for testing
 parallel --jobs 1 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_width={3} \
+  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
     datalog=datalog_{#}.txt \
     > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \

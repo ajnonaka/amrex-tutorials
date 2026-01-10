@@ -16,7 +16,7 @@ Identify / Add input parameters
 
       amrex::Real diffusion_coeff;
       amrex::Real init_amplitude;
-      amrex::Real init_width;
+      amrex::Real init_variance;
 
 2. Read parameters from inputs file:
 
@@ -28,15 +28,15 @@ Identify / Add input parameters
       init_amplitude = 1.0;
       pp.query("init_amplitude", init_amplitude);
 
-      init_width = 0.01;
-      pp.query("init_width", init_width);
+      init_variance = 0.01;
+      pp.query("init_variance", init_variance);
 
 3. Use parameters in initial conditions and evolution:
 
    .. code-block:: cpp
 
       // Initial conditions
-      amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / init_width;
+      amrex::Real rsquared = ((x-0.5)*(x-0.5) + (y-0.5)*(y-0.5) + (z-0.5)*(z-0.5)) / (2.*init_variance);
       phiOld(i,j,k) = 1.0 + init_amplitude * std::exp(-rsquared);
 
       // Evolution
@@ -235,7 +235,7 @@ Add UQ parameters as function arguments:
    def main(n_cell: int = 32, max_grid_size: int = 16, nsteps: int = 100,
             plot_int: int = 100, dt: float = 1e-5, plot_files_output: bool = False,
             verbose: int = 1, diffusion_coeff: float = 1.0, init_amplitude: float = 1.0,
-            init_width: float = 0.01) -> Tuple[amr.MultiFab, amr.Geometry]:
+            init_variance: float = 0.01) -> Tuple[amr.MultiFab, amr.Geometry]:
 
 **2. Use parameters in physics**
 
@@ -254,7 +254,7 @@ Replace hardcoded values with function parameters:
 
    rsquared = ((x[:, xp.newaxis, xp.newaxis] - 0.5)**2
              + (y[xp.newaxis, :, xp.newaxis] - 0.5)**2
-             + (x[xp.newaxis, xp.newaxis, :] - 0.5)**2) / init_width
+             + (x[xp.newaxis, xp.newaxis, :] - 0.5)**2) / init_variance
    phiOld[:, ngz:-ngz, ngy:-ngy, ngx:-ngx] = 1. + init_amplitude * xp.exp(-rsquared)
 
 .. code-block:: python
@@ -293,7 +293,7 @@ Create a ``HeatEquationModel.py`` that inherits from ``AMReXBaseModel``:
        _param_fields = [
            ('param', 'diffusion_coeff'),
            ('param', 'init_amplitude'),
-           ('param', 'init_width'),
+           ('param', 'init_variance'),
        ]
 
        _output_fields = [
@@ -309,7 +309,7 @@ Create a ``HeatEquationModel.py`` that inherits from ``AMReXBaseModel``:
            phi_new, geom = main(
                diffusion_coeff=float(param_set[0]),
                init_amplitude=float(param_set[1]),
-               init_width=float(param_set[2]),
+               init_variance=float(param_set[2]),
                plot_files_output=False,
                verbose=0
            )
@@ -340,7 +340,7 @@ Specify mean and standard deviation for each uncertain parameter (one per line):
 
    echo "1 0.25 " > param_margpc.txt        # diffusion_coeff: mean=1.0, std=0.25
    echo "1 0.25" >> param_margpc.txt        # init_amplitude: mean=1.0, std=0.25
-   echo "0.01 0.0025" >> param_margpc.txt   # init_width: mean=0.01, std=0.0025
+   echo "0.01 0.0025" >> param_margpc.txt   # init_variance: mean=0.01, std=0.0025
 
 **Parameter Names (pnames.txt)**
 
@@ -350,7 +350,7 @@ List parameter names matching your AMReX ParmParse inputs:
 
    echo "diffusion_coeff" > pnames.txt
    echo "init_amplitude" >> pnames.txt
-   echo "init_width" >> pnames.txt
+   echo "init_variance" >> pnames.txt
 
 **Output Names (outnames.txt)**
 

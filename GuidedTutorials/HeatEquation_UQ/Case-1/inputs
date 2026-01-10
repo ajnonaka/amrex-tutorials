@@ -13,4 +13,4 @@ datalog_int = -1             # how often to write datalog (-1 = no regular outpu
 # Physics parameters (these are what we vary for UQ and values here will be overwritten
 diffusion_coeff = 100.      # diffusion coefficient for heat equation
 init_amplitude = 1.         # amplitude of initial temperature profile
-init_width = 0.01           # width parameter (variance, not std dev)
+init_variance = 0.01        # variance of initial temperature profile
