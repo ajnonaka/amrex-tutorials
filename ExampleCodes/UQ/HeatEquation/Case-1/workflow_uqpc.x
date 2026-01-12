@@ -2,7 +2,7 @@
 #=====================================================================================
 
 # Script location
-export UQPC=../../../../pytuq/apps/uqpc
+export UQPC=../../../../../pytuq/apps/uqpc
 export PUQAPPS=$UQPC/..
 
 
@@ -17,7 +17,7 @@ export PUQAPPS=$UQPC/..
 ## (a) Given mean and standard deviation of each normal random parameter
 # inputs are diffusion_coeff, init_amplitude, init_variance
 echo "100 25 " > param_margpc.txt
-echo "1 0.25" >> param_margpc.txt
+echo "10 2.5" >> param_margpc.txt
 echo "0.01 0.0025" >> param_margpc.txt
 PC_TYPE=HG # Hermite-Gaussian PC
 INPC_ORDER=1

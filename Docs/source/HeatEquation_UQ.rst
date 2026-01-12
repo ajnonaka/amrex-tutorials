@@ -38,7 +38,7 @@ with uncertain parameters ``diffusion_coeff`` (:math:`D`), ``init_amplitude`` (:
 The outputs of interest are the maximum temperature, mean temperature, standard deviation of temperature,
 and total "energy" (i.e., summation of temperature over all grid points).
 
-Located in ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ``, these examples illustrate the complete forward UQ workflow from parameter sampling through sensitivity analysis. After running the provided examples, the Customizing the Workflow section explains the underlying problem setup and provides step-by-step guidance for adapting this workflow to your own AMReX application.
+Located in ``amrex-tutorials/ExampleCodes/UQ/HeatEquation``, these examples illustrate the complete forward UQ workflow from parameter sampling through sensitivity analysis. After running the provided examples, the Customizing the Workflow section explains the underlying problem setup and provides step-by-step guidance for adapting this workflow to your own AMReX application.
 
 Installation
 ------------
@@ -85,7 +85,7 @@ Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/py
 
    **Comprehensive Installation:**
 
-   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh`` `example_detailed_install.sh <../../../GuidedTutorials/HeatEquation_UQ/example_detailed_install.sh>`_
+   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``ExampleCodes/UQ/HeatEquation/example_detailed_install.sh`` `example_detailed_install.sh <../../../ExampleCodes/UQ/HeatEquation/example_detailed_install.sh>`_
 
 
 Examples
@@ -105,7 +105,7 @@ C++ AMReX + PyTUQ (BASH driven)
    .. code-block:: bash
       :caption: Build C++ example
 
-      cd amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1
+      cd amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-1
       make -j4
 
    .. code-block:: bash
@@ -287,7 +287,7 @@ C++ AMReX + PyTUQ (python driven)
    .. code-block:: bash
       :caption: Build C++ example
 
-      cd GuidedTutorials/HeatEquation_UQ/Case-2
+      cd ExampleCodes/UQ/HeatEquation/Case-2
       make -j4
 
    .. note::
@@ -351,7 +351,7 @@ PyAMReX + PyTUQ
    .. code-block:: bash
       :caption: Navigate to Case-3 directory
 
-      cd GuidedTutorials/HeatEquation_UQ/Case-3
+      cd ExampleCodes/UQ/HeatEquation/Case-3
 
    .. note::
 
@@ -484,6 +484,6 @@ Additional Resources
 
    For complete working examples of the ``outputs = model(inputs)`` pattern, see:
 
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-1/`` - C++ executable and python scripts called from a bash workflow script
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-2/`` - C++ executable driven by python wrapping bash
-   - ``amrex-tutorials/GuidedTutorials/HeatEquation_UQ/Case-3/`` - PyAMReX native
+   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-1/`` - C++ executable and python scripts called from a bash workflow script
+   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-2/`` - C++ executable driven by python wrapping bash
+   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-3/`` - PyAMReX native
