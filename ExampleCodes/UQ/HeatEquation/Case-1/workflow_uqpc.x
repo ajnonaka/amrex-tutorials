@@ -16,8 +16,8 @@ export PUQAPPS=$UQPC/..
 
 ## (a) Given mean and standard deviation of each normal random parameter
 # inputs are diffusion_coeff, init_amplitude, init_variance
-echo "100 25 " > param_margpc.txt
-echo "10 2.5" >> param_margpc.txt
+echo "400 100 " > param_margpc.txt
+echo "1.0 0.25" >> param_margpc.txt
 echo "0.01 0.0025" >> param_margpc.txt
 PC_TYPE=HG # Hermite-Gaussian PC
 INPC_ORDER=1
@@ -137,9 +137,7 @@ echo "cell_temp" >> outnames.txt
 # ytrain.txt is N x o output matrix, each row is a output vector of size o 
 
 parallel --jobs 4 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
-    datalog=datalog_{#}.txt \
-    > /dev/null 2>&1 \
+  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \
   :::: ptrain.txt > ytrain.txt
 
@@ -150,10 +148,8 @@ parallel --jobs 4 --keep-order --colsep ' ' \
 
 
 # Similar for testing
-parallel --jobs 1 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
-    datalog=datalog_{#}.txt \
-    > /dev/null 2>&1 \
+parallel --jobs 4 --keep-order --colsep ' ' \
+  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 \
     && tail -1 datalog_{#}.txt' \
   :::: ptest.txt > ytest.txt
 
