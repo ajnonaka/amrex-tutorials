@@ -3,8 +3,8 @@ n_cell = 32                 # number of cells on each side of domain
 max_grid_size = 16          # size of each box (or grid)
 
 # Time stepping parameters  
-nsteps = 10                 # total steps in simulation
-dt = 5.e-7                  # time step
+nsteps = 100                # total steps in simulation
+dt = 5.e-8                  # time step
 
 # Output control
 plot_int = -1                # how often to write plotfile (-1 = no plots)
