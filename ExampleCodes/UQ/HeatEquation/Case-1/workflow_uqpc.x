@@ -52,7 +52,7 @@ ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
 
 # Number of samples requested
 NTRN=111 # Training
-NTST=33  # Testing	
+NTST=33  # Testing
 
 # Extract dimensionality d (i.e. number of input parameters)
 DIM=`awk 'NR==1{print NF}' pcf.txt`
@@ -126,8 +126,6 @@ echo "mean_temp" >> outnames.txt
 echo "std_temp" >> outnames.txt
 echo "cell_temp" >> outnames.txt
 
-
-
 ################################
 ## 2. Run the black-box model ##
 ################################
@@ -135,25 +133,52 @@ echo "cell_temp" >> outnames.txt
 # Run the black-box model, can be any model from R^d to R^o)
 # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
 # ytrain.txt is N x o output matrix, each row is a output vector of size o 
-
-parallel --jobs 4 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 \
-    && tail -1 datalog_{#}.txt' \
-  :::: ptrain.txt > ytrain.txt
-
-#while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
-#  mpiexec -n 1 ./main3d.gnu.ex inputs diffusion_coeff="$diffusion_coeff" init_amplitude="$init_amplitude" init_variance="$init_variance" datalog="datalog_$(printf '%03d' $((counter++))).txt" > /dev/null 2>&1
-#  tail -1 "datalog_$(printf '%03d' $((counter - 1))).txt"
-#done < ptrain.txt > ytrain.txt
-
-
 # Similar for testing
-parallel --jobs 4 --keep-order --colsep ' ' \
-  './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 \
-    && tail -1 datalog_{#}.txt' \
-  :::: ptest.txt > ytest.txt
+parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 && tail -1 datalog_{#}.txt' :::: ptrain.txt > ytrain.txt
+parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 && tail -1 datalog_{#}.txt' :::: ptest.txt > ytest.txt
 
-# This creates files ytrain.txt, ytest.txt (train/test model outputs)
+########
+# alternative using mpiexec
+########
+
+## Initialize job index
+#job_index=0
+#
+## Read each line from ptrain.txt
+#while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
+#
+#    # Prepare the datalog filename
+#    datalog_filename="datalog_${job_index}.txt"
+#
+#    # Run the job with mpiexec
+#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null >/dev/null
+#
+#    # If successful, output the last line of the datalog
+#    if [ $? -eq 0 ]; then
+#        tail -1 "$datalog_filename" >> ytrain.txt
+#    fi
+#    job_index=$((job_index+1))
+#done < ptrain.txt
+#
+## Initialize job index
+#job_index=0
+#
+## Read each line from ptest.txt
+#while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
+#
+#    # Prepare the datalog filename
+#    datalog_filename="datalog_${job_index}.txt"
+#
+#    # Run the job with mpiexec
+#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null >/dev/null
+#
+#    # If successful, output the last line of the datalog
+#    if [ $? -eq 0 ]; then
+#        tail -1 "$datalog_filename" >> ytest.txt
+#    fi
+#    job_index=$((job_index+1))
+#done < ptest.txt
+
 
 ##############################
 #  3. Build PC surrogate    ##
