@@ -134,8 +134,8 @@ echo "cell_temp" >> outnames.txt
 # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
 # ytrain.txt is N x o output matrix, each row is a output vector of size o 
 # Similar for testing
-parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 && tail -1 datalog_{#}.txt' :::: ptrain.txt > ytrain.txt
-parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_{#}.txt > /dev/null 2>&1 && tail -1 datalog_{#}.txt' :::: ptest.txt > ytest.txt
+parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_train{#}.txt > stdoutlog_train{#}.txt 2>&1 ; tail -1 datalog_train{#}.txt' :::: ptrain.txt > ytrain.txt
+parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_test{#}.txt > stdoutlog_test{#}.txt 2>&1 ; tail -1 datalog_test{#}.txt' :::: ptest.txt > ytest.txt
 
 ########
 # alternative using mpiexec
@@ -147,11 +147,12 @@ parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusio
 ## Read each line from ptrain.txt
 #while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
 #
-#    # Prepare the datalog filename
-#    datalog_filename="datalog_${job_index}.txt"
+#    # Prepare the datalog and stdout log filenames
+#    datalog_filename="datalog_train${job_index}.txt"
+#    stdoutlog_filename="stdoutlog_train${job_index}.txt"
 #
 #    # Run the job with mpiexec
-#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null >/dev/null
+#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null > $stdoutlog_filename 2>&1
 #
 #    # If successful, output the last line of the datalog
 #    if [ $? -eq 0 ]; then
@@ -166,11 +167,12 @@ parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusio
 ## Read each line from ptest.txt
 #while IFS=' ' read -r diffusion_coeff init_amplitude init_variance; do
 #
-#    # Prepare the datalog filename
-#    datalog_filename="datalog_${job_index}.txt"
+#    # Prepare the datalog and stdout log filenames
+#    datalog_filename="datalog_test${job_index}.txt"
+#    stdoutlog_filename="stdoutlog_test${job_index}.txt"
 #
 #    # Run the job with mpiexec
-#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null >/dev/null
+#    mpiexec -n 4 ./main3d.gnu.MPI.ex inputs diffusion_coeff=$diffusion_coeff init_amplitude=$init_amplitude init_variance=$init_variance datalog=$datalog_filename </dev/null > $stdoutlog_filename 2>&1
 #
 #    # If successful, output the last line of the datalog
 #    if [ $? -eq 0 ]; then
@@ -178,7 +180,6 @@ parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusio
 #    fi
 #    job_index=$((job_index+1))
 #done < ptest.txt
-
 
 ##############################
 #  3. Build PC surrogate    ##
