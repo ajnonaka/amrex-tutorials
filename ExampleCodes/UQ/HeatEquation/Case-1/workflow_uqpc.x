@@ -1,15 +1,16 @@
 #!/bin/bash -e
 #=====================================================================================
 
-# Script location
-export UQPC=../../../../../pytuq/apps/uqpc
-export PUQAPPS=$UQPC/..
+# indicate location of pytuq repo here
+export PYTUQ_HOME=../../../../../pytuq
 
+# relative location of pytuq and uqpc apps
+export PUQAPPS=$PYTUQ_HOME/apps
+export UQPC=$PYTUQ_HOME/apps/uqpc
 
 ################################
 ##    0. Setup the problem    ##
 ################################
-
 
 ## Four simple options for uncertain input parameter setup. 
 ## Uncomment one of them. 

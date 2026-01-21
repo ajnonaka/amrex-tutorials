@@ -16,6 +16,9 @@ int main (int argc, char* argv[])
     amrex::Initialize(argc,argv);
     {
 
+    // store the current time so we can later compute total run time.
+    Real strt_time = ParallelDescriptor::second();
+
     // **********************************
     // DECLARE SIMULATION PARAMETERS
     // **********************************
@@ -346,6 +349,11 @@ int main (int argc, char* argv[])
         }
     }
 
+    // Call the timer again and compute the maximum difference between the start time
+    // and stop time over all processors
+    Real stop_time = ParallelDescriptor::second() - strt_time;
+    ParallelDescriptor::ReduceRealMax(stop_time);
+    amrex::Print() << "Run time = " << stop_time << std::endl;
 
     }
     Finalize();
