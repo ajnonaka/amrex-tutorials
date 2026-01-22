@@ -2,7 +2,7 @@
 #=====================================================================================
 
 # indicate location of pytuq repo here
-export PYTUQ_HOME=../../../../../pytuq
+export PYTUQ_HOME=../../../../pytuq
 
 # relative location of pytuq and uqpc apps
 export PUQAPPS=$PYTUQ_HOME/apps
@@ -12,48 +12,20 @@ export UQPC=$PYTUQ_HOME/apps/uqpc
 ##    0. Setup the problem    ##
 ################################
 
-## Four simple options for uncertain input parameter setup. 
-## Uncomment one of them. 
-
-## (a) Given mean and standard deviation of each normal random parameter
+## Given mean and standard deviation of each normal random parameter
 # inputs are diffusion_coeff, init_amplitude, init_variance
 echo "400 100 " > param_margpc.txt
 echo "1.0 0.25" >> param_margpc.txt
 echo "0.01 0.0025" >> param_margpc.txt
-PC_TYPE=HG # Hermite-Gaussian PC
+# Hermite-Gaussian PC
+PC_TYPE=HG
 INPC_ORDER=1
 # Creates input PC coefficient file pcf.txt (will have lots of zeros since we assume independent inputs)
 ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
 
-# ## (b) Given mean and variance of each uniform random parameter
-# echo "1 0.3 " > param_margpc.txt
-# echo "3 0.1" >> param_margpc.txt
-# echo "1 0.5" >> param_margpc.txt
-# PC_TYPE=LU # Legendre-Uniform PC
-# INPC_ORDER=1
-# # Creates input PC coefficient file pcf.txt (will have lots of zeros since we assume independent inputs)
-# ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
-
-# ## (c) Given mean and covariance of multivariate normal random parameter
-# echo "3.0" > mean.txt
-# echo "-2.1" >> mean.txt
-# echo "1.5 0.4" > cov.txt
-# echo "0.4 2.0" >> cov.txt
-# PC_TYPE=HG # Hermite-Gaussian PC
-# INPC_ORDER=1
-# # Creates input PC coefficient file pcf.txt 
-# ${PUQAPPS}/pc_prep.py -f mvn -i mean.txt -c cov.txt
-# # Visualize covariance
-# ${PUQAPPS}/plot_cov.py -m mean.txt -c cov.txt
-
-# ## (d) Given samples of inputs in psam.txt (e.g. from a prior calibration study)
-# ${PUQAPPS}/pc_prep.py -f sam -i psam.txt -p ${INPC_ORDER}
-# PC_TYPE=HG # Hermite-Gaussian PC
-# INPC_ORDER=3
-
 # Number of samples requested
-NTRN=111 # Training
-NTST=33  # Testing
+NTRN=99 # Training
+NTST=20  # Testing
 
 # Extract dimensionality d (i.e. number of input parameters)
 DIM=`awk 'NR==1{print NF}' pcf.txt`
@@ -61,67 +33,21 @@ DIM=`awk 'NR==1{print NF}' pcf.txt`
 # Output PC order
 OUTPC_ORDER=3 
 
-####################################
-##  1-2. Online UQ with model.x   ##
-####################################
-## Run UQ with model.x in an online fashion (i.e. this is equivalent to the steps 1-2 below)
-# Can uncomment this and comment out steps 1-2 below.
-# ${UQPC}/uq_pc.py -r online_bb -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
-
-
-####################################
-##  1-2. Pre-run input/output     ##
-####################################
-
-# # Quick and dirty equivalent if user already has the input/output pairs
-# # Can uncomment this and comment out steps 1-2 below, IF input.txt and output.txt are available
-# ln -sf input.txt pall.txt
-# ln -sf output.txt yall.txt
-# # Get ranges of inputs, with 10% 'cushion' from the dimension-wise extreme samples
-# ${UQPC}/../awkies/getrange.x pall.txt 0.1 > param_range.txt
-# # Scale the inputs
-# ${UQPC}/../awkies/scale.x pall.txt from param_range.txt qall.txt
-
-# # This is not ideal if input/output have strictly fewer or more rows than NTRN+NTST
-# head -n$NTRN pall.txt > ptrain.txt
-# head -n$NTRN qall.txt > qtrain.txt
-# head -n$NTRN yall.txt > ytrain.txt
-
-# tail -n$NTST pall.txt > ptest.txt
-# tail -n$NTST qall.txt > qtest.txt
-# tail -n$NTST yall.txt > ytest.txt
-
-###################################
-##  1-3. Online UQ with model()  ##
-###################################
-## Run UQ with model() function defined in uq_pc.py (i.e. this is equivalent to the steps 1-3 below)
-# Can uncomment this and comment out steps 1-3 below.
-# ${UQPC}/uq_pc.py -r online_example -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
-
-
-
 ###############################
 ##  1. Prepare the inputs    ##
 ###############################
 
 # Prepare inputs for the black-box model (use input PC to generate input samples for the model)
+# This creates files ptrain.txt, ptest.txt (train/test parameter inputs), qtrain.txt, qtest.txt (corresponding train/test stochastic PC inputs)
 ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTRN
 mv psam.txt ptrain.txt; mv qsam.txt qtrain.txt
 ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTST
 mv psam.txt ptest.txt; mv qsam.txt qtest.txt
 
-
-# This creates files ptrain.txt, ptest.txt (train/test parameter inputs), qtrain.txt, qtest.txt (corresponding train/test stochastic PC inputs)
-
-
-# Optionally can provide pnames.txt and outnames.txt with input parameter names and output QoI names
-# Or delete them to use generic names
-#rm -f pnames.txt outnames.txt
-
+# create pnames.txt and outnames.txt with input parameter names and output QoI names
 echo "diffusion_coef" > pnames.txt
 echo "init_amplitude" >> pnames.txt
 echo "init_variance" >> pnames.txt
-
 echo "max_temp" > outnames.txt
 echo "mean_temp" >> outnames.txt
 echo "std_temp" >> outnames.txt
@@ -131,16 +57,17 @@ echo "cell_temp" >> outnames.txt
 ## 2. Run the black-box model ##
 ################################
 
-# Run the black-box model, can be any model from R^d to R^o)
+# Run the black-box model, both training and testing
+# use parallel to launch multiple jobs at a time, each using 1 MPI rank
 # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
 # ytrain.txt is N x o output matrix, each row is a output vector of size o 
 # Similar for testing
 parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_train{#}.txt > stdoutlog_train{#}.txt 2>&1 ; tail -1 datalog_train{#}.txt' :::: ptrain.txt > ytrain.txt
 parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} datalog=datalog_test{#}.txt > stdoutlog_test{#}.txt 2>&1 ; tail -1 datalog_test{#}.txt' :::: ptest.txt > ytest.txt
 
-########
-# alternative using mpiexec
-########
+################################
+# 2. Run the black-box model (alternative using mpiexec)
+################################
 
 ## Initialize job index
 #job_index=0
@@ -187,15 +114,8 @@ parallel --jobs 4 --keep-order --colsep ' ' './main3d.gnu.MPI.ex inputs diffusio
 ##############################
 
 # Build surrogate for each output (in other words, build output PC)
-${UQPC}/uq_pc.py -r offline -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
-
 # This creates files results.pk (Python pickle file encapsulating the results)
-
-
-# Quick equivalent but here results are saved differently
-# ${PUQAPPS}/pc_fit.py -x qtrain.txt -y ytrain.txt -c ${PC_TYPE} -o ${OUTPC_ORDER}
-# This creates files pcrv.pk and lregs.pk (Python pickle file encapsulating the results)
-
+${UQPC}/uq_pc.py -r offline -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
 
 ###################################
 ##  4. Visualize the i/o data    ##
@@ -221,7 +141,6 @@ ${PUQAPPS}/plot_ens.py -y ytrain.txt
 ## 5. Postprocess the results ##
 ################################
 
-
 # Plot model vs PC for each output
 ${UQPC}/plot.py dm training testing
 # Plot model vs PC for each sample
@@ -245,4 +164,3 @@ ${UQPC}/plot.py 1d training testing
 ${UQPC}/plot.py 2d 
 
 # This creates .png files for visualizing PC surrogate results and sensitivity analysis
-

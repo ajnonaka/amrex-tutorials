@@ -1,3 +1,0 @@
-diffusion_coeff
-init_amplitude
-init_width
