@@ -160,7 +160,7 @@ int main (int argc, char* argv[])
     // we allocate two phi multifabs; one will store the old state, the other the new.
     amrex::MultiFab phi_old(ba, dm, Ncomp, Nghost);
     amrex::MultiFab phi_new(ba, dm, Ncomp, Nghost);
-    amrex::MultiFab phi_tmp(ba, dm, Ncomp, Nghost);
+    amrex::MultiFab phi_tmp(ba, dm, Ncomp, Nghost); // temporary used to calculate standard deviation
 
     // time = starting time in the simulation
     amrex::Real time = 0.0;
