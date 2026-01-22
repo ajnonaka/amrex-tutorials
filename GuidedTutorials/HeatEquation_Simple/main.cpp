@@ -90,7 +90,7 @@ int main (int argc, char* argv[])
 
     // This defines the physical box, [0,1] in each direction.
     amrex::RealBox real_box({ 0., 0., 0.},
-                     { 1., 1., 1.});
+                            { 1., 1., 1.});
 
     // periodic in all direction
     amrex::Array<int,3> is_periodic{1,1,1};
@@ -217,10 +217,7 @@ int main (int argc, char* argv[])
         }
     }
 
-
     }
     amrex::Finalize();
     return 0;
 }
-
-
