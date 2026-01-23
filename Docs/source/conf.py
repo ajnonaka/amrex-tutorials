@@ -39,6 +39,8 @@ def get_amrex_version():
 extensions = ['sphinx.ext.mathjax',
               'sphinx.ext.githubpages',
               'sphinx.ext.viewcode',
+              'sphinx_design',
+              'sphinx_copybutton',
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme']
 
@@ -50,6 +52,9 @@ intersphinx_mapping = {
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['ytemplates']
+
+# sphinx-copybutton configuration
+copybutton_exclude = '.linenos, .gp, .go'
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
