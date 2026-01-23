@@ -23,7 +23,7 @@ If you have conda, you can install the necessary packages as follows:
 
        2. Type "conda install sphinx_rtd_theme"
 
-       3. Type "sphinx-design"
+       3. Type "conda install sphinx-design"
 
        4. Type "conda install -c conda-forge sphinx-copybutton"
 
