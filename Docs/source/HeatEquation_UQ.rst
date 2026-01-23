@@ -40,7 +40,7 @@ The outputs of interest are the maximum temperature, mean temperature, standard 
    :maxdepth: 1
 
    HeatEquation_UQ_MathematicalDetails
-   
+
 Located in ``amrex-tutorials/ExampleCodes/UQ/HeatEquation``, this example illustrates a complete forward UQ workflow from parameter sampling randomized input parameters to perform sensitivity analysis.
 By understanding this example, you will have a basis for understanding how to adapt this workflow to your own AMReX application.
 
