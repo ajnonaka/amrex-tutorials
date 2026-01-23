@@ -10,52 +10,15 @@ The Heat Equation
 
 The governing equation for this tutorial is the heat diffusion equation:
 
-.. math::
+.. math:: \frac{\partial\phi}{\partial t} = D\nabla^2 \phi,
 
-   \frac{\partial T}{\partial t} = D \nabla^2 T + S(x,y,z)
+with initial condition
 
-where:
+.. math:: \phi_0 = 1 + A e^{-r^2 / (2V)},
 
-- :math:`T` is the temperature field
-- :math:`D` is the diffusion coefficient (``diffusion_coeff``)
-- :math:`S(x,y,z)` is an optional source term (not used in this example)
+where ``r`` is the distance from the center of the domain, and with uncertain parameters ``diffusion_coeff`` (:math:`D`), ``init_amplitude`` (:math:`A`), and ``init_variance`` (:math:`V`).
 
-The initial temperature profile is a Gaussian centered at (0.5, 0.5, 0.5):
 
-.. math::
-
-   T(x,y,z,t=0) = 1 + A \exp\left(-\frac{r^2}{2*V}\right)
-
-where:
-
-- :math:`A` is the initial amplitude (``init_amplitude``)
-- :math:`V` is the initial variance (``init_variance``)
-- :math:`r^2 = (x-0.5)^2 + (y-0.5)^2 + (z-0.5)^2`
-
-Uncertain Input Parameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The three uncertain parameters in this analysis are:
-
-1. **diffusion_coeff** (:math:`D`): Controls how fast heat spreads through the domain
-
-   - Mean: 1.0 m²/s
-   - Standard deviation: 0.25 m²/s
-   - Range: [0.25, 1.75] m²/s
-
-2. **init_amplitude** (:math:`A`): Peak temperature above baseline
-
-   - Mean: 1.0 K
-   - Standard deviation: 0.25 K
-   - Range: [0.25, 1.75] K
-
-3. **init_variance** (:math:`V`): Controls spread of initial temperature profile
-
-   - Mean: 0.01 m²
-   - Standard deviation: 0.0025 m²
-   - Range: [0.0025, 0.0175] m²
-
-These parameters are specified in the AMReX inputs file and read using ``ParmParse::query()`` (see ``main.cpp`` lines 100-111).
 
 Quantities of Interest (Outputs)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,9 +28,9 @@ The simulation extracts four statistical quantities at the final timestep:
 1. **max_temp**: Maximum temperature in the domain
 2. **mean_temp**: Average temperature across all cells
 3. **std_temp**: Standard deviation of temperature
-4. **total_energy**: Sum of temperature values (proportional to total thermal energy)
+4. **cell_temp**: Temperature in a particular cell, in this case, cell (9,9,9)
 
-These outputs are computed in ``main.cpp`` (lines 293-299) and written to the datalog file.
+These outputs are computed in ``main.cpp``and written to the datalog file.
 
 PyTUQ Workflow
 ^^^^^^^^^^^^^^
@@ -82,4 +45,4 @@ PyTUQ uses polynomial chaos expansion to construct a surrogate model:
 The connection is:
 
 - **Inputs**: ParmParse parameters (``diffusion_coeff``, ``init_amplitude``, ``init_variance``) specified in ``inputs`` file or command line
-- **Outputs**: Quantities of interest extracted from datalog files or direct Python access to MultiFabs
+- **Outputs**: Quantities of interest extracted from datalog files

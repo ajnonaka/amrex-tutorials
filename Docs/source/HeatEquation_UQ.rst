@@ -4,27 +4,26 @@
 
 .. _pytuq_quickstart:
 
-AMReX-pytuq
+UQ with PyTUQ
 ===========
 
-.. admonition:: **Time to Complete**: 15-20 minutes
+.. admonition:: **Time to Complete**: 30-60 minutes
    :class: note
 
    **What you will learn**:
       - Install PyTUQ
-      - Run AMReX + PyTUQ examples
-      - Deploy on Perlmutter
+      - Run an AMReX+PyTUQ to perform sensitivity analysis
 
 Overview
 --------
 
-AMReX simulations deliver high-fidelity, accurate results for complex physics problems, but parameter studies and uncertainty quantification can require hundreds or thousands of runs—making comprehensive analysis computationally prohibitive.
+AMReX simulations deliver high-fidelity, accurate results for complex physics problems, but the effect on simulation results due to uncertain inputs can require hundreds or thousands of simulations, making comprehensive analysis computationally prohibitive.
 
 This tutorial demonstrates how to improve efficiency without sacrificing accuracy by using polynomial chaos expansions to build fast surrogate models that identify which input parameters truly matter.
 
 PyTUQ (Python interface to the UQ Toolkit) provides specialized tools for surrogate construction and global sensitivity analysis, enabling rapid parameter space exploration and dimensionality reduction for scientific applications.
 
-We demonstrate how to integrate PyTUQ with your AMReX application through three practical workflows: C++ executables managed with bash run management (Case-1), Python-driven C++ executables (Case-2), and native PyAMReX applications (Case-3).
+We demonstrate how to integrate PyTUQ with your AMReX application through a practical workflow; the AMReX-based heat equation tutorial is equipped to perform sensitivity analysis.
 
 In these examples we model the heat equation
 
@@ -34,30 +33,29 @@ with initial condition
 
 .. math:: \phi_0 = 1 + A e^{-r^2 / (2V)},
 
-with uncertain parameters ``diffusion_coeff`` (:math:`D`), ``init_amplitude`` (:math:`A`), and ``init_variance`` (:math:`V`).
-The outputs of interest are the maximum temperature, mean temperature, standard deviation of temperature,
-and total "energy" (i.e., summation of temperature over all grid points).
+where ``r`` is the distance from the center of the domain, and with uncertain parameters ``diffusion_coeff`` (:math:`D`), ``init_amplitude`` (:math:`A`), and ``init_variance`` (:math:`V`).
+The outputs of interest are the maximum temperature, mean temperature, standard deviation of temperature, and the temperature at a specified point.
 
-Located in ``amrex-tutorials/ExampleCodes/UQ/HeatEquation``, these examples illustrate the complete forward UQ workflow from parameter sampling through sensitivity analysis. After running the provided examples, the Customizing the Workflow section explains the underlying problem setup and provides step-by-step guidance for adapting this workflow to your own AMReX application.
+.. toctree::
+   :maxdepth: 1
+
+   HeatEquation_UQ_MathematicalDetails
+   
+Located in ``amrex-tutorials/ExampleCodes/UQ/HeatEquation``, this example illustrates a complete forward UQ workflow from parameter sampling randomized input parameters to perform sensitivity analysis.
+By understanding this example, you will have a basis for understanding how to adapt this workflow to your own AMReX application.
+
+More specifically, you can directly compare/diff ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/main.cpp`` against the original heat equation tutorial ``amrex-tutorials/GuidedTutorials/HeatEquation_Simple/main.cpp`` to see exactly what source code changes are made to the AMReX application in this example.
 
 Installation
 ------------
 
-Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/pytuq/blob/main/README.md>`_:
-
-.. note::
-
-   For NERSC users, consider placing your conda environment in ``/global/common/software``
-   for better performance and persistence. Also, remember to ``module load conda`` before creating environments and installing. See the `NERSC Python documentation
-   <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
-   for details.
+We now describe the installation and workflow process on a local workstation.
+First, install pytuq using this script (based on information provided in `pytuq/README.md <https://github.com/sandialabs/pytuq/blob/main/README.md>`_):
 
 .. code-block:: bash
    :caption: Pytuq installation script
 
    #!/bin/bash
-
-   # For NERSC: module load conda
 
    # 1. Clone repositories
    git clone https://github.com/sandialabs/pytuq.git
@@ -66,11 +64,6 @@ Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/py
    conda create --name pytuq
    conda activate pytuq
    conda install python=3.11
-
-   # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
-   # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
-   # or
-   # conda activate /global/common/software/myproject/$USER/pytuq_integration
 
    # 3. Install PyTUQ and requirements
    cd pytuq
@@ -81,39 +74,31 @@ Install pytuq as described in `pytuq/README.md <https://github.com/sandialabs/py
    # 4. Verify installation
    conda list | grep pytuq    # Should show pytuq 1.0.0
 
-.. note::
-
-   **Comprehensive Installation:**
-
-   For a detailed installation script that includes AMReX, pyAMReX, and PyTUQ setup in a conda environment, see ``ExampleCodes/UQ/HeatEquation/example_detailed_install.sh`` `example_detailed_install.sh <../../../ExampleCodes/UQ/HeatEquation/example_detailed_install.sh>`_
-
-
 Examples
 --------
 
 C++ AMReX + PyTUQ (BASH driven)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. dropdown:: Build and Run
-   :open:
-
    **Prerequisites**:
 
    - AMReX and pytuq cloned at the same directory level as amrex-tutorials
-   - GNU Parallel for task management: ``sudo apt-get install parallel``
+   - pytuq installation described above
+   - GNU Parallel for task management: ``sudo apt-get install parallel`` (mpiexec option also exists in script)
 
    .. code-block:: bash
-      :caption: Build C++ example
+      :caption: Build AMReX appplication
 
-      cd amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-1
+      cd /path/to/amrex-tutorials/ExampleCodes/UQ/HeatEquation/
       make -j4
 
    .. code-block:: bash
-      :caption: Run with bash script
+      :caption: Run sensitivity analysis with bash script
 
       ./workflow_uqpc.x
 
-.. dropdown:: Understanding GNU Parallel Workflow Pattern
+Understanding GNU Parallel Workflow Pattern
+-------------------------------------------
 
    The ``workflow_uqpc.x`` bash script relies on the user augmenting their codes to write outputs of interest to ASCII text files.
    In this case, the ``main.cpp`` was modified from the ``amrex-tutorials/GuidedTutorials/HeatEquation_Simple/main.cpp`` in the following ways:
@@ -126,340 +111,12 @@ C++ AMReX + PyTUQ (BASH driven)
    the outputs of interest after the final step are those that matter, and are extracted by the bash script to create a master output file
    containing a separate set of simulation outputs of interest in each row.
 
-   The bash script calls PyTUQ scripts that generate an input parameter file (``ptrain.txt``) and then uses GNU Parallel to run multiple simulations
-   efficiently and collect outputs into a results file (``ytrain.txt``) that PyTUQ can use for surrogate model fitting.
-
-   Here's how the script works.
-   In the first part of the script, the user generates a ``param_margpc.txt`` file containing the mean and standard deviation
-   of each normal random parameter.  Then pyTUQ scripts are called to generate the appropriate sampling based on polynomial chaos settings,
-   and ultimately creates ``ptrain.txt`` which contains the parameters (one set per line) for each simulation to be run.
-
-   .. code-block:: bash
-      :caption: Example GNU Parallel command (``workflow_uqpc.x``)
-
-      #!/bin/bash -e
-      #=====================================================================================
-
-      # Script location
-      export UQPC=../../../../pytuq/apps/uqpc
-      export PUQAPPS=$UQPC/..
-
-      ################################
-      ##    0. Setup the problem    ##
-      ################################
-
-      ## Four simple options for uncertain input parameter setup.
-      ## Uncomment one of them.
-
-      ## (a) Given mean and standard deviation of each normal random parameter
-      # inputs are diffusion_coeff, init_amplitude, init_variance
-      echo "100 25 " > param_margpc.txt
-      echo "1 0.25" >> param_margpc.txt
-      echo "0.01 0.0025" >> param_margpc.txt
-      PC_TYPE=HG # Hermite-Gaussian PC
-      INPC_ORDER=1
-      # Creates input PC coefficient file pcf.txt (will have lots of zeros since we assume independent inputs)
-      ${PUQAPPS}/pc_prep.py -f marg -i param_margpc.txt -p ${INPC_ORDER}
-
-      # Number of samples requested
-      NTRN=111 # Training
-      NTST=33  # Testing
-
-      # Extract dimensionality d (i.e. number of input parameters)
-      DIM=`awk 'NR==1{print NF}' pcf.txt`
-
-      # Output PC order
-      OUTPC_ORDER=3
-
-      # Prepare inputs for the black-box model (use input PC to generate input samples for the model)
-      ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTRN
-      mv psam.txt ptrain.txt; mv qsam.txt qtrain.txt
-      ${PUQAPPS}/pc_sam.py -f pcf.txt -t ${PC_TYPE} -n $NTST
-      mv psam.txt ptest.txt; mv qsam.txt qtest.txt
-
-      # This creates files ptrain.txt, ptest.txt (train/test parameter inputs), qtrain.txt, qtest.txt (corresponding train/test stochastic PC inputs)
-
-      # Optionally can provide pnames.txt and outnames.txt with input parameter names and output QoI names
-      # Or delete them to use generic names
-      rm -f pnames.txt outnames.txt
-
-   The next part of the script runs all of the simulation and collects the results.
-
-   .. code-block:: bash
-
-      ################################
-      ## 2. Run the black-box model ##
-      ################################
-
-      # Run the black-box model, can be any model from R^d to R^o)
-      # ptrain.txt is N x d input matrix, each row is a parameter vector of size d
-      # ytrain.txt is N x o output matrix, each row is a output vector of size o
-
-      parallel --jobs 1 --keep-order --colsep ' ' \
-      './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
-      datalog=datalog_{#}.txt \
-      > /dev/null 2>&1 \
-      && tail -1 datalog_{#}.txt' \
-      :::: ptrain.txt > ytrain.txt
-
-      # Similar for testing
-      parallel --jobs 1 --keep-order --colsep ' ' \
-      './main3d.gnu.ex inputs diffusion_coeff={1} init_amplitude={2} init_variance={3} \
-      datalog=datalog_{#}.txt \
-      > /dev/null 2>&1 \
-      && tail -1 datalog_{#}.txt' \
-      :::: ptest.txt > ytest.txt
-
-      # This creates files ytrain.txt, ytest.txt (train/test model outputs)
-
-   **How it works:**
-
-   1. **Input file (ptrain.txt)** - Space/tab-separated parameter samples (one row per simulation):
-
-      .. code-block:: text
-
-         1.252744433619e+00 1.189332992765e+00 1.107922825308e-02
-         1.153626977108e+00 8.912357108037e-01 8.456030290466e-03
-         3.265959848625e-01 7.285478940917e-01 7.687549687284e-03
-
-   2. **For each row**, GNU Parallel:
-
-      - Substitutes ``{1}`` with column 1
-      - Substitutes ``{2}`` with column 2
-      - Substitutes ``{3}`` with column 3
-      - Substitutes ``{#}`` with the line number (e.g., ``1``) → ``datalog_1.txt``
-
-   3. **After simulation**, extracts output from final line of simulation standard output with ``tail -1 datalog_{#}.txt``
-
-   4. **Output file (ytrain.txt)** - Collected results (one row per simulation):
-
-      .. code-block:: text
-
-         1.106358248808103    0.007723115686160915    0.0562709919848521       253.0710548041209
-         0.8113473575862051   0.003858932516788893    0.03451729840856418      126.4495007101384
-         0.6608518630828316   0.002734417468982227    0.02636512039600031      89.60139162360962
-         1.082407360836961    0.01225809407946649     0.06904148772504816      401.6732267959578
-         1.279158901768254    0.006549137494533053    0.05630882962684351      214.6021374208591
-
-   **Key options:**
-
-   - ``--jobs 4`` - Run 4 simulations in parallel
-   - ``--colsep ' '`` - Columns separated by spaces (use ``'\t'`` for tabs)
-   - ``-k`` - Keep output order matching input order (important for parallel jobs)
-   - ``::::`` - Read input from file (``ptrain.txt``)
-
-   **Output extraction alternatives:**
-
-   Instead of ``tail -1 datalog_{#}.txt``, you can use other extraction methods (see :ref:`pytuq_extending_tutorial` for output examples):
-
-   - **Plotfile tools**: ``fextrema.gnu.ex plt_{#} | tail -1 | awk '{print $3}'``
-   - **Custom post-processing script**: ``./postprocess_run.sh {#}``
-
-     A post-processing script can take the line number ``{#}`` as an argument to locate and process the corresponding simulation outputs (datalog, plotfile, etc.), then print the space/tab-separated row for that simulation.
-
-   This pattern makes it easy to:
-
-   - Take a parameter file with N rows (one per simulation)
-   - Run simulations in parallel with unique output files
-   - Collect results into an output file with N rows (one per simulation result)
-
-   Finally, the pyTUQ analyzes the results:
-
-   .. code-block:: bash
-
-      ##############################
-      #  3. Build PC surrogate    ##
-      ##############################
-
-      # Build surrogate for each output (in other words, build output PC)
-      ${UQPC}/uq_pc.py -r offline -c pcf.txt -x ${PC_TYPE} -d $DIM -o ${INPC_ORDER} -m anl -s rand -n $NTRN -v $NTST -t ${OUTPC_ORDER}
-
-.. dropdown:: Understanding the Output
-
-
-C++ AMReX + PyTUQ (python driven)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. dropdown:: Build and Run
-
-   **Prerequisites**: AMReX compiled with MPI support
-
-   .. code-block:: bash
-      :caption: Build C++ example
-
-      cd ExampleCodes/UQ/HeatEquation/Case-2
-      make -j4
-
-   .. note::
-
-      **Adapting the PyTUQ example script:**
-
-      Copy the PyTUQ example script and replace the Ishigami test function with the HeatEquationModel wrapper. This allows PyTUQ to drive the C++ executable through Python subprocess calls.
-
-   .. code-block:: bash
-      :caption: Copy PyTUQ example script
-
-      cp ../../../../pytuq/examples/ex_pcgsa.py .
-
-   **Modify ex_pcgsa.py:**
-
-   Add the import near the top of the file:
-
-   .. code-block:: python
-
-      from ModelXBaseModel import HeatEquationModel
-
-   Replace the model definition:
-
-   .. code-block:: python
-      :caption: Original (around line 23)
-
-      myfunc = Ishigami()
-
-   .. code-block:: python
-      :caption: Replacement
-
-      myfunc = HeatEquationModel()
-      myfunc._request_out_fields = [('output', 'max_temp')]
-
-   .. code-block:: bash
-      :caption: Run UQ analysis
-
-      python ./ex_pcgsa.py
-
-   .. note::
-
-      **Offline Workflow (similar to Case-1):**
-
-      Case-2 can also be run in offline mode where you manually generate training data, then fit the surrogate model. This is useful for running simulations on HPC systems and post-processing locally:
-
-      .. code-block:: bash
-         :caption: Generate training data offline
-
-         # Call model.x on parameter samples to generate outputs
-         ./model.x ptrain.txt ytrain.txt
-
-      The ``model.x`` wrapper script manages calling your C++ executable for each parameter set and collecting the outputs. After generating ``ytrain.txt``, use PyTUQ's ``pc_fit.py`` to construct the surrogate model.
-
-PyAMReX + PyTUQ
-~~~~~~~~~~~~~~~
-
-.. dropdown:: Setup and Run
-
-   **Prerequisites**: pyAMReX installed
-
-   .. code-block:: bash
-      :caption: Navigate to Case-3 directory
-
-      cd ExampleCodes/UQ/HeatEquation/Case-3
-
-   .. note::
-
-      **Using PyAMReX with PyTUQ:**
-
-      For native PyAMReX applications, copy the PyTUQ example script and replace the Ishigami function with the PyAMReX-based HeatEquationModel. This enables direct Python-to-Python integration without subprocess overhead.
-
-   .. code-block:: bash
-      :caption: Copy PyTUQ example script
-
-      cp ../../../../pytuq/examples/ex_pcgsa.py .
-
-   **Modify ex_pcgsa.py:**
-
-   Add the import near the top of the file:
-
-   .. code-block:: python
-
-      from HeatEquationModel import HeatEquationModel
-
-   Replace the model definition:
-
-   .. code-block:: python
-      :caption: Original (around line 23)
-
-      myfunc = Ishigami()
-
-   .. code-block:: python
-      :caption: Replacement
-
-      myfunc = HeatEquationModel()
-      myfunc._request_out_fields = [('output', 'max_temp')]
-
-   .. code-block:: bash
-      :caption: Run UQ analysis
-
-      python ./ex_pcgsa.py
-
-Perlmutter Deployment
----------------------
-
-C++ AMReX on Perlmutter
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. dropdown:: Perlmutter Setup
-
-   .. code-block:: bash
-      :caption: Virtual environment setup
-
-      module load conda
-      # For NERSC (see https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware):
-      # conda create -y --prefix /global/common/software/myproject/$USER/pytuq_integration python=3.11
-      conda create -y --name pytuq_integration python=3.11
-      git clone --recursive --branch v1.0.0z https://github.com/sandialabs/pytuq
-      cd pytuq
-      echo "dill" >> requirements.txt
-      pip install -r requirements.txt
-      pip install .
-
-   .. code-block:: bash
-      :caption: perlmutter_build.sh
-
-      module load PrgEnv-gnu cudatoolkit
-      make USE_MPI=TRUE USE_CUDA=TRUE
-
-   .. code-block:: bash
-      :caption: Submit job
-
-      # If stored in common software: conda activate /global/common/software/myproject/$USER/pytuq_integration
-      conda activate pytuq_integration
-      sbatch wk_uqpc.slurm
-
-   .. note::
-
-       For NERSC, consider placing your conda environment in ``/global/common/software``
-       for better performance and persistence. See the `NERSC Python documentation
-       <https://docs.nersc.gov/development/languages/python/nersc-python/#moving-your-conda-setup-to-globalcommonsoftware>`_
-       for details.
-
-.. note::
-
-   **Advanced Workflow Management:**
-
-   For more complex UQ workflows requiring sophisticated task management, consider these strategies:
-
-   - **SLURM Job Arrays**: For running many similar parameter sweep jobs - `NERSC Job Arrays Documentation <https://docs.nersc.gov/jobs/examples/#job-arrays>`_
-   - **Hydra Submitit Launcher**: For configuration-driven HPC job submission - `Hydra Submitit Usage <https://hydra.cc/docs/plugins/submitit_launcher/#usage>`_
-   - **libEnsemble**: For dynamic ensemble management and adaptive sampling - `libEnsemble Platforms Guide <https://libensemble.readthedocs.io/en/main/platforms/platforms_index.html>`_
-
-   See the `NERSC Workflow Documentation <https://docs.nersc.gov/jobs/workflow/>`_ for the latest recommendations on workflow management strategies.
-
-Customizing the Workflow
+   The bash script calls PyTUQ scripts that generate an input parameter files for training and testing (``ptrain.txt`` and ``ptest.txt``)
+   based on polynomial chaos settings, and then uses GNU Parallel to run multiple simulations
+   efficiently and collect outputs into results files (``ytrain.txt`` and ``ytest.txt``) that PyTUQ can use for surrogate model fitting.
+
+Understanding the Output
 ------------------------
-
-.. toctree::
-   :maxdepth: 1
-
-   HeatEquation_UQ_MathematicalDetails
-   HeatEquation_UQ_ExtendingTutorial
-
-Summary
--------
-
-**Key Takeaways:**
-
-* PyTUQ can use models with ``outputs = model(inputs)`` interface
-* C++ codes can use wrapper scripts or gnu parallel; Python codes integrate directly
-* Best practices for Perlmutter requires python environment modules
 
 Additional Resources
 --------------------
@@ -473,17 +130,7 @@ Additional Resources
 **AMReX Resources:**
 
 - `AMReX Documentation <https://amrex-codes.github.io/amrex/docs_html/>`_
-- `pyAMReX Documentation <https://pyamrex.readthedocs.io>`_
-- :ref:`_guided_heat` - Base tutorial this builds upon
 
 **Uncertainty Quantification Theory:**
 
 - Ghanem, Roger, David Higdon, and Houman Owhadi, eds. *Handbook of Uncertainty Quantification*. Vol. 6. New York: Springer, 2017. (For workflow, plotting, and analysis specifics)
-
-.. seealso::
-
-   For complete working examples of the ``outputs = model(inputs)`` pattern, see:
-
-   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-1/`` - C++ executable and python scripts called from a bash workflow script
-   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-2/`` - C++ executable driven by python wrapping bash
-   - ``amrex-tutorials/ExampleCodes/UQ/HeatEquation/Case-3/`` - PyAMReX native
