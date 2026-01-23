@@ -118,6 +118,79 @@ Understanding GNU Parallel Workflow Pattern
 Understanding the Output
 ------------------------
 
+| `pnames.txt`, `outnames.txt`
+| -names of input and output parameters
+
+| `param_margpc.txt`
+| -Each row contains the mean and standard deviation for an uncertain input parameter
+
+| `qtrain.txt`, `qtest.txt`
+| -each row is a separate set of normal random variables used to generate uncertain inputs
+
+| `ptrain.txt`, `ptest.txt`, `pall.txt`
+| -each row is a separate set of input parameters for each simulation
+
+| `stdoutlog_train##.txt`, `stdoutlog_test##.txt`
+| -All standard output from AMReX simulations for training and testing data.  The numbers refer to separate simulations.
+
+| `datalog_train##.txt`, `datalog_test##.txt`
+| -Specifically-chosen output from AMReX simulations for training and testing data.  In this example it reports the outputs (max, mean, standard deviation, and specific cell temperature) at user-specified intervals.
+
+| `ytrain.txt`, `ytest.txt`, `yall.txt`
+| -agglomeration of outputs of interest from all simulations
+
+| `results.pk`
+| -Python pickle file encapsulating the results
+
+| `labels.txt`
+| -list of labels of simulation types (training or testing) for diagnostic/plot generation purposes
+
+| `xx_<INVAR1>_<INVAR2>.png`
+| -scatter plot of 2 inputs for training and testing
+
+| `pcoord_1.png`, `pcoord_1_lab_Testing.png`, `pcoord_1_lab_Training.png`
+| -graphical representation of how inputs correlate to outputs for each individual simulation
+
+| `yx_<OUTVAR>.png`, `yx_<OUTVAR>_log.png`
+| -scatter plots of output as a function of each input
+
+| `yxx_#.png`
+| -scatter plots of output a function of multiple inputs
+
+| `pdf_tri_inputs.png`, `pdf_tri_output.png`
+| -PDFs of inputs and outputs
+
+| `ensemble.png`
+| -graphical display of all output values
+
+| `idm_#_training.png`, `idm_#_testing.png`
+| -graphical display of output values
+
+| `dm_#.png`
+| -”data vs model” parity plots for each output; compares the predicted values from a surrogate model or approximation against the true or actual values from the full computational model
+
+| `fit_s#_training.png`, `fit_s#_testing.png`
+| -Shows model vs PC approximation for a single simulation.
+
+| `pdf_output_#.png`, `pdf_joyplot.png`
+| -PDF of output variables
+
+| `allsens_main.txt`, `sens_main.png`
+| -raw data and plot for parameter sensitivities
+
+| `jsens_#.png`, `Jsens_ave.png`
+| -joint sensitivities of output with respect to inputs
+
+| `sensmat_main.png`
+| -sensitivity matrix
+
+| `pcslices_o#.png`
+| -polynomial chaos fits
+
+| `pccont_o#_d#_d#.png`
+| -polynomial chaos fits of output variables with respect to two input variables
+
+
 Additional Resources
 --------------------
 
